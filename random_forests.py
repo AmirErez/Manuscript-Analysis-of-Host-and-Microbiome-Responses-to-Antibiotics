@@ -3,9 +3,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import requests
 import seaborn as sns
-# from Yasmin_analysis import four_way_random_forest
-from Yasmin_analysis import four_way_forest, classification_report_to_df, plot_heatmap_colors, orange, light_blue, \
-    plot_confusion_matrix
+
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import confusion_matrix, classification_report
 from sklearn.model_selection import train_test_split
@@ -13,6 +11,244 @@ from sklearn.preprocessing import LabelEncoder
 
 from ClusteringGO import read_process_files, treatments, transform_data, antibiotics
 
+light_blue = plt.rcParams['axes.prop_cycle'].by_key()['color'][0]
+orange = plt.rcParams['axes.prop_cycle'].by_key()['color'][1]
+def plot_confusion_matrix(addition="", factor=1, path="./Private/YasminRandomForest", order=None, random=False, size=(10, 10)):
+    # plot it as a heatmap, make x label "predicted", y label "true"
+    import matplotlib.pyplot as plt
+    import seaborn as sns
+    forest_confusion_matrix = pd.read_csv(path + f"/confusion_matrix{addition}{'_random' if random else ''}.csv", index_col=0)
+    if order:
+        forest_confusion_matrix = forest_confusion_matrix.loc[order, order]
+    fig, ax = plt.subplots(figsize=size)
+    # print(forest_confusion_matrix.sum(axis=1).values, forest_confusion_matrix.sum(axis=0).values)
+    print(forest_confusion_matrix.sum().sum())
+
+    # Set the center point
+    center = 1 / len(forest_confusion_matrix)
+    # Create a custom normalization
+    from matplotlib.colors import TwoSlopeNorm
+    norm = TwoSlopeNorm(vmin=0, vcenter=center, vmax=1)
+
+    # increase size of number on the heatmap
+    if factor != 1:
+        heatmap = sns.heatmap(forest_confusion_matrix / factor, annot=True, fmt=".1%", ax=ax, annot_kws={"size": 20}, vmin=0,
+                    vmax=1, norm=norm)
+        to_save = forest_confusion_matrix / factor
+    else:
+        heatmap = sns.heatmap(forest_confusion_matrix, annot=True, fmt=".1%", ax=ax, annot_kws={"size": 20}, cmap="RdBu_r", vmin=0, vmax=1, norm=norm)
+        to_save = forest_confusion_matrix
+
+    to_save.to_csv(path + f"/confusion_matrix{addition}{'_random' if random else ''}.csv")
+    # Add center to cbar
+    cbar = heatmap.collections[0].colorbar
+
+    # # Get the current tick locations and labels
+    # tick_locs = cbar.get_ticks()
+    # if center not in tick_locs:
+    #     tick_locs = sorted(list(tick_locs) + [center])
+    # # tick_locs = [loc for loc in tick_locs if abs(loc - center) > 1e-6]
+    tick_locs = [center*i for i in range(int(1/center) + 1)]
+
+    cbar.set_ticks(tick_locs)
+    tick_labels = [f'{loc*100:.0f}%' for loc in tick_locs]
+    # center_index = tick_locs.index(center)
+    # tick_labels[center_index] = f'{center:.3f} (center)'
+    cbar.set_ticklabels(tick_labels)
+
+    ax.tick_params(labelsize=18)
+    ax.set_xlabel("Predicted Category", fontsize=25)
+    ax.set_ylabel("True Category", fontsize=25)
+    plt.tight_layout()
+    plt.savefig(path + f"/confusion_matrix{addition}{'_random' if random else ''}.png")
+    plt.show()
+    plt.close()
+
+
+def plot_heatmap_colors(cluster, col_cluster, save_name, top_df, path="./Private/YasminRandomForest", normalize=True,
+                        colors=None, title="", jump=7, xticks=[3.5, 10.5, 17.5, 24.5], show_all_y=True, hline=None,
+                        vline=False, sort=True, set_max=True, multiabx=False):
+    if col_cluster:
+        mice = cluster.dendrogram_col.reordered_ind
+        top_df = top_df.iloc[:, mice]
+    if normalize:
+        # remove from each row its mean
+        top_df = top_df.sub(top_df.mean(axis=1), axis=0)
+        # normalize each row by its standard deviation
+        top_df = top_df.div(top_df.std(axis=1), axis=0)
+    if sort:
+        # sort top_df columns lexically
+        columns = np.argsort(top_df.columns)
+        top_df = top_df.iloc[:, columns]
+
+    # plot the heatmap
+    if set_max:
+        vmax = 10 if show_all_y else set_max
+        # heatmap = sns.heatmap(top_df, vmax=vmax, cmap="RdBu_r")
+        heatmap = sns.heatmap(top_df, vmax=vmax, vmin=-10, cmap="RdBu_r")
+    elif multiabx:
+        vmax = 2
+        vmin = -2
+        heatmap = sns.heatmap(top_df, vmax=vmax, vmin=vmin, cmap="RdBu_r")
+    else:
+        heatmap = sns.heatmap(top_df, cmap="RdBu_r")
+    # create a dictionary 'PBS DONOR': 'blue', 'PBS RECIPIENT': 'light blue',
+    # 'Van DONOR': 'red', 'Van RECIPIENT': 'light red'
+
+    cbar = heatmap.collections[0].colorbar
+    actual_vmin, actual_vmax = cbar.vmin, cbar.vmax
+    # increase tick size
+    cbar.ax.tick_params(labelsize=15)
+    if actual_vmax == vmax:
+        # Define explicit ticks, ensuring they cover your desired range
+        ticks = np.linspace(actual_vmin, actual_vmax, num=5)  # Adjust the number of ticks as needed
+        # Set the ticks on the colorbar
+        cbar.set_ticks(ticks)
+        # Customize tick labels, modifying the last label to indicate a limit
+        last = f"{ticks[-1]:.0f}+" if actual_vmax == vmax else actual_vmax
+        first = f"{ticks[0]:.0f}+" if actual_vmin == vmin else actual_vmin
+        tick_labels = [first] + [f"{tick:.0f}" for tick in ticks[1:-1]] + [last]  # Add '+' to the last label
+        # Apply the customized tick labels
+        cbar.set_ticklabels(tick_labels)
+
+    if not colors:
+        colors = {'Donor PBS': 'blue', 'Recipient PBS': light_blue, 'Donor Van': 'red', 'Recipient Van': orange}
+    label_colors = [colors[label] for label in top_df.columns]
+    if hline:
+        plt.axhline(y=hline, color='black', linewidth=1)
+    if vline:
+        for i in range(1, 3):
+            # draw a line between pbs and abx
+            plt.axvline(x=14 * i - 7, color="black", linewidth=1, linestyle="--")
+            # draw a dashed line between time points
+            plt.axvline(x=14 * i, color="black", linewidth=1)
+    bar_height = 0.01 * top_df.shape[0]
+    ax = plt.gca()
+    for k, color in enumerate(label_colors):
+        bar_width = 1  # Set the width to match a column (fixed at 1)
+        ax.add_patch(
+            plt.Rectangle((k, top_df.shape[0] - bar_height), bar_width, bar_height, color=color,
+                          fill=True))
+    if jump:
+        # show only the 4th, 11th, 18th, 25th columns
+        ax.set_xticks(xticks)
+        ax.set_xticklabels(top_df.columns[::jump])
+        plt.xticks(rotation=45, ha='center', size=20)
+    else:
+        plt.xticks(np.arange(len(top_df.columns)), top_df.columns, rotation=0, fontsize=8)
+        plt.xticks(rotation=90, ha='center', size=20)
+    if title:
+        plt.title(title)
+    # plt.xticks(np.arange(len(top_df.columns)), top_df.columns, rotation=45, ha='right', fontsize=12)
+    if show_all_y:
+        # show all yticks
+        plt.yticks(np.arange(len(top_df.index)), top_df.index, rotation=0, fontsize=8)
+    plt.ylabel("")
+    # increase all font sizes
+    plt.rc('font', size=25)
+    plt.gcf().set_size_inches(2.5 * (len(colors) + 1), 15 * top_df.shape[0] / 100)
+    plt.tight_layout()
+    if top_df.shape[0] < 400:
+        # plt.savefig(f"./Private/YasminRandomForest/{save_name}.png", dpi=600)
+        plt.savefig(path + f"/{save_name}.pdf", dpi=600)
+        plt.savefig(path + f"/{save_name}.png", dpi=600)
+    else:
+        plt.savefig(path + f"/{save_name}.pdf")
+        plt.savefig(path + f"/{save_name}.png")
+    plt.close()
+    import matplotlib
+    matplotlib.rcParams.update(matplotlib.rcParamsDefault)
+
+
+def classification_report_to_df(report_str):
+    import re
+
+    lines = report_str.split('\n')
+
+    # Find the column names
+    column_names = re.findall(r'\b\w+\b', lines[0])
+
+    # Initialize an empty list to store data
+    data = []
+
+    # Iterate through the lines and extract data
+    for line in lines[2:-5]:
+        values = re.findall(r'\b\d+\.?\d*\b', line)
+        if values:
+            data.append(values)
+
+    # Create a Pandas DataFrame
+    df = pd.DataFrame(data, columns=column_names)
+
+    # set precision to index, rename recall to precision, f1 to recall, score to f1-score
+    df = df.rename(columns={"precision": "index", "recall": "precision", "f1": "recall", "score": "f1-score"})
+    df = df.set_index("index")
+    # convert all values to float
+    df = df.astype(float)
+
+    return df
+
+
+
+def four_way_forest(df, feature_columns, target_column, test_size=8 / 28, random_state=42):
+    """
+    Perform classification with a random forest classifier for four classes.
+
+    Parameters:
+    - df: DataFrame with features and target variable.
+    - feature_columns: List of column names for features.
+    - target_column: Name of the target variable column.
+    - test_size: Proportion of the data to include in the test split (default is 0.2).
+    - random_state: Seed for random number generation (default is 42).
+
+    Returns:
+    - clf: Trained random forest classifier.
+    - conf_matrix: Confusion matrix.
+    - classification_rep: Classification report.
+    """
+
+    # Split the data into features (X) and target variable (y)
+    X = df[feature_columns]
+    y = df[target_column]
+
+    # Encode target variable if it's not numeric
+    label_encoder = LabelEncoder()
+    y = label_encoder.fit_transform(y)
+
+    # Split the data into training and testing sets
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, random_state=random_state+2,
+                                                        stratify=y)
+
+    # Build a random forest classifier
+    clf = RandomForestClassifier(random_state=random_state+1)
+    clf.fit(X_train, y_train)
+
+    # Predictions on the test set
+    y_pred = clf.predict(X_test)
+
+    # Get actual labels before encoding
+    actual_labels = label_encoder.inverse_transform(y_test)
+
+    # Evaluate the classifier
+    conf_matrix = confusion_matrix(y_test, y_pred)
+    classification_rep = classification_report(y_test, y_pred)
+
+    # create a dictionary of the labels using the label encoder
+    labels_dict = {i: label for i, label in enumerate(label_encoder.classes_)}
+
+    # print("Actual Labels:")
+    # print(labels_dict)
+
+    # print("\nConfusion Matrix:")
+    # print(conf_matrix)
+    # print("\nClassification Report:")
+    # print(classification_rep)
+    # convert classification report to a DataFrame
+    report = classification_report_to_df(classification_rep)
+    # get features importance
+    importance = pd.Series(clf.feature_importances_, index=feature_columns)
+
+    return conf_matrix, report.values, importance, labels_dict
 
 def class_forest(df, feature_columns, target_column, test_size=8 / 28, random_state=42):
     """

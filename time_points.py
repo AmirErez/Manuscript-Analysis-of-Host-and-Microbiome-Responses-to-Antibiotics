@@ -9,14 +9,121 @@ from scipy.special import comb
 from venn import venn
 
 from ClusteringGO import build_tree, calculate_correlation, get_ensmus_dict
-from clusters_plot import plot_median_all_conditions, plot_categories, intersection, \
-    plot_clusters_separately, z_score_by_pbs, get_genes_from_df, get_median_from_df, prepare_data
+from clusters_plot import plot_categories, intersection, z_score_by_pbs
 
 data_path = os.path.join("..", "Data")
 spf = os.path.join("SPF time points")
 gf = os.path.join("GF time points")
 private = os.path.join("Private")
 path = os.path.join(private, "clusters_properties")
+
+
+def get_genes_from_df(df, go_cluster):
+    # if len(df[(df["GO term"] == go_cluster)]["genes"].values) == 0:
+    #     print(f"{go_cluster} is missing, filled by zeros")
+    #     line = np.concatenate([np.array([go_cluster]), np.zeros(data.shape[1])])
+    #     temp = temp.append(pd.Series(line), ignore_index=True)
+    #     return temp
+    return [gene.strip("{").strip("}").strip(' ').strip("\"").strip("\'") for gene in
+            df[(df["GO term"] == go_cluster)]["genes"].values[0].split(",")]
+
+
+def get_median_from_df(data, go_cluster, mice, temp, genes):
+    relevant_genes = [gene for gene in genes if gene in data.index]
+    median = np.median(data[mice].loc[relevant_genes], axis=0)
+    line = np.concatenate([np.array([go_cluster]), median])
+    temp = temp.append(pd.Series(line), ignore_index=True)
+    return temp
+
+
+def prepare_data(anti, condition, exp_type, meta_data, treat):
+    temp = pd.DataFrame()
+    df = pd.read_csv(f'./Private/clusters_properties/{exp_type}/top_correlated_GO_terms_{anti}_{treat}.tsv',
+                     sep="\t")
+    abx = meta_data[(meta_data['Drug'] == anti) & (meta_data[condition] == treat)]
+    pbs = meta_data[(meta_data['Drug'] == 'PBS') & (meta_data[condition] == treat)]
+    mice = pd.concat((abx['ID'], pbs['ID']))
+    return abx, df, mice, pbs, temp
+
+
+def plot_clusters_separately(df, raw, abx_mice, pbs_mice, title, show=True, save=True):
+    """
+    iterate over the clusters in df, and for each cluster get the median of the genes by the raw all_data
+    """
+    if df.empty:
+        return
+    mice = pd.concat((abx_mice['ID'], pbs_mice['ID']))
+    # iterate over the rows of the dataframe
+    for index, row in df.iterrows():
+        # get the genes in the cluster
+        genes = row["genes"].split(",")
+        genes = [gene.strip("{").strip("}").strip(' ').strip("\"").strip("\'") for gene in genes]
+        cluster = raw[mice].loc[genes]
+        normalized_cluster = z_score_by_pbs(cluster, abx_mice, pbs_mice)
+        sns.clustermap(data=normalized_cluster, row_cluster=True, col_cluster=False,
+                       cmap='vlag')  # , xticklabels=True, yticklabels=True)
+        # z_score=0, cmap='vlag')  # , xticklabels=True, yticklabels=True)
+        suppress = "enhanced" if row["enhanced?"] == True else "suppressed"
+        plt.title(f"{title}{row['GO term']} {row['name']} {suppress}")
+        if save:
+            plt.savefig(f"./Private/{row['Antibiotics']}_{row['Condition']}_GO_{row['GO term'][3:]}_{suppress}.png")
+        if show:
+            plt.show()
+
+
+def plot_median_all_conditions(meta_data, raw_data, antibiotics, treatments, condition, exp_type, run_type="",
+                               labelsize=12, regular=True, cols_factor=6.0, rows_factor=5.0):
+    matrices = get_median_matrices(antibiotics, condition, exp_type[1:], meta_data, raw_data, treatments, regular)
+    axis = set_figure(treatments, antibiotics, cols_factor, rows_factor)
+    GO_number = pd.DataFrame(index=antibiotics, columns=treatments, data=0)
+    # for j, treat in enumerate(conditions):
+    #     for i, abx in enumerate(antibiotics):
+    for j, treat in enumerate(treatments):
+        for i, abx in enumerate(antibiotics):
+            curr_axis = get_to_axis(axis, i, j, len(treatments), len(antibiotics))
+            curr_axis.set_title(f"{abx}, {treat}")
+            cbar = False if i != 1 or j != 4 else True
+            if matrices[treat][abx] is not None:
+                cluster_names_dict = get_clusters_names_dict(abx, treat, exp_type)
+                # matrices[treat][abx].T.to_csv(f"./Private/medians/only_medians/{abx}_{treat}.csv")
+                curr_matrix = matrices[treat][abx]
+                # sort columns and put all columns that ends with N in the end
+                curr_matrix = curr_matrix.reindex(sorted(curr_matrix.columns, key=lambda x: x.endswith('N')), axis=1)
+                # sns.heatmap(curr_matrix, vmin=-2.8, vmax=2, xticklabels=True, cmap="vlag", ax=curr_axis, cbar=cbar)
+                GO_number.loc[abx, treat] = curr_matrix.shape[0]
+                sns.heatmap(curr_matrix, xticklabels=True, cmap="vlag", ax=curr_axis, cbar=cbar, vmax=5, vmin=-5)
+                # label_colors = ['blue' if label.startswith('C') else 'red' for label in curr_matrix.columns]
+                label_colors = ['blue' if meta_data[meta_data["ID"] == label]["Drug"].values == "PBS" else 'red' for
+                                label in curr_matrix.columns]
+                bar_height = 0.01 * curr_matrix.shape[0]
+                for k, color in enumerate(label_colors):
+                    bar_width = 1  # Set the width to match a column (fixed at 1)
+                    curr_axis.add_patch(
+                        plt.Rectangle((k, curr_matrix.shape[0] - bar_height), bar_width, bar_height, color=color,
+                                      fill=True))
+
+                curr_axis.yaxis.label.set_visible(False)
+                # replace y labels with cluster names, using dictionary above
+                curr_axis.set_yticklabels(
+                    [cluster_names_dict[label.get_text()] for label in curr_axis.get_yticklabels()], rotation=0)
+                tl = curr_axis.get_xticklabels()
+                curr_axis.set_xticklabels(tl, rotation=45, fontsize=labelsize)
+                tl = curr_axis.get_yticklabels()
+                curr_axis.set_yticklabels(tl, rotation=0)
+            else:
+                print(f"{abx} {treat} is empty")
+    # increase vertical space between plots
+    plt.subplots_adjust(wspace=1.5)
+    # plt.subplots_adjust(hspace=2)
+    # decrease all axis labels size
+    plt.rc('xtick', labelsize=labelsize)
+    # plt.title(" ")
+    plt.savefig(private + fr"/analysis/{exp_type}/{exp_type}{run_type} medians_of_all.png", bbox_inches='tight')
+    plt.show()
+    plt.close()
+
+    # save GO_number to a csv file
+    GO_number.to_csv(private + fr"/analysis/{exp_type}/{exp_type}{run_type} GO_number.csv")
 
 
 def all_path(x):
