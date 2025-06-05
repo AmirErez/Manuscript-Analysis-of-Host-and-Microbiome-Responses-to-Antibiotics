@@ -880,9 +880,9 @@ def compare_mix_single(mix, no_mix, param, treat, col, xlabel, ylabel, title, to
 
 def get_selected_df_plot(abx, mix, param, treat):
     # read the clusters data for abx_treat and mix_treat
-    df = pd.read_csv(os.path.join("data", "clusters_properties", f"top_correlated_GO_terms_{abx}_{treat}.tsv"),
+    df = pd.read_csv(os.path.join("Data", "clusters_properties", f"top_correlated_GO_terms_{abx}_{treat}.tsv"),
                      sep="\t")
-    df_mix = pd.read_csv(os.path.join("data", "clusters_properties", f"top_correlated_GO_terms_{mix}_{treat}.tsv"),
+    df_mix = pd.read_csv(os.path.join("Data", "clusters_properties", f"top_correlated_GO_terms_{mix}_{treat}.tsv"),
                          sep="\t")
     # get the selected clusters for abx_treat
     # selected = df[(df['treat-test p-value'] <= 0.05) & (df['size'] >= 2) & (
@@ -899,9 +899,9 @@ def get_selected_df_plot(abx, mix, param, treat):
 
 def get_selected_df_plot_mix(abx, mix, param, treat):
     # read the clusters data for abx_treat and mix_treat
-    df_other = pd.read_csv(os.path.join("data", "clusters_properties", f"top_correlated_GO_terms_{abx}_{treat}.tsv"),
+    df_other = pd.read_csv(os.path.join("Data", "clusters_properties", f"top_correlated_GO_terms_{abx}_{treat}.tsv"),
                            sep="\t")
-    df = pd.read_csv(os.path.join("data", "clusters_properties", f"top_correlated_GO_terms_{mix}_{treat}.tsv"),
+    df = pd.read_csv(os.path.join("Data", "clusters_properties", f"top_correlated_GO_terms_{mix}_{treat}.tsv"),
                      sep="\t")
     # get the selected clusters for abx_treat
     selected = df[(df['fdr correlation'] < 0.05)]
