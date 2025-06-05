@@ -12,7 +12,7 @@ from matplotlib.patches import Ellipse
 from scipy.stats import linregress
 from scipy.stats.mstats import gmean
 
-from clusters_plot import merge_results, clusters_compare_mix
+from clusters_plot import clusters_compare_mix
 
 treatments = ['IP', 'IV', 'PO']
 antibiotics = ['Amp', 'Met', 'Neo', 'Van', 'Mix']
@@ -364,7 +364,9 @@ def create_csv(level='taxon', impute=True, qiime=True, d0=False):
         # add_median(data_frame, place)
         # data_frame.to_csv(f"./private/otu_merged_{place}_reduced_{threshold}_sum-1000_fam.tsv", sep="\treat")
 
-        df.to_csv(os.path.join("Private", f"otu_merged_{place}_{level}{'_qiime' if qiime else ''}{'_d0' if d0 else ''}.tsv"), sep="\t")
+        df.to_csv(
+            os.path.join("Private", f"otu_merged_{place}_{level}{'_qiime' if qiime else ''}{'_d0' if d0 else ''}.tsv"),
+            sep="\t")
         # print(data_frame)
         for abx in df.antibiotic.unique():
             if abx == "PBS":
@@ -394,7 +396,7 @@ def get_colors_dictionary(columns):
     # import matplotlib._color_data as mcd
     # colors = list(mcd.XKCD_COLORS.values())[::40]
     # if colors_dict.txt exist, return it
-    colors_file_path = "./Private/colors_dict.txt"
+    colors_file_path = os.path.join("Private", "colors_dict.txt")
 
     if os.path.exists(colors_file_path):
         # if False:
@@ -609,8 +611,38 @@ def plot_effective_number_heatmap(eff_num, loc, thresh, drugs, treats, maximal, 
     plt.show()
 
 
-# treats = ['gavage', 'IV', 'IP']
-# drugs = ['amp', 'mix', 'van', 'met', 'neo', 'PBS']
+def get_colors_dictionary_bact(columns):
+    colors = [
+        '#1f77b4',  # Blue
+        '#ff7f0e',  # Orange
+        '#2ca02c',  # Green
+        '#d62728',  # Red
+        '#9467bd',  # Purple
+        '#8c564b',  # Brown
+        '#e377c2',  # Pink
+        '#7f7f7f',  # Gray
+        '#bcbd22',  # Yellow-green
+        '#17becf',  # Cyan
+        '#ff9896',  # Light red
+        '#98df8a',  # Light green
+        '#ffbb78',  # Light orange
+        '#c5b0d5',  # Light purple
+        '#f7b6d2',  # Light pink
+        '#9edae5',  # Light blue
+        '#ad494a',  # Dark red
+        '#4B0082',  # Indigo
+        '#FF1493',  # Deep pink
+        '#00CED1',  # Dark turquoise
+        '#FF4500',  # Orange-red
+        '#32CD32',  # Lime green
+        '#4169E1',  # Royal blue
+        '#800080',  # Purple
+        '#FFD700'  # Gold
+    ]
+
+    return {col: colors[k] for k, col in enumerate(columns)}
+
+
 treats = ['IP', 'IV', 'gavage']
 drugs = ['amp', 'met', 'neo', 'van', 'mix', 'PBS']
 
@@ -627,7 +659,7 @@ def create_figures(level='genus', impute=True, qiime=True):
         df = df.reindex(df[df.columns[:-8]].mean().sort_values().index[::-1], axis=1)
         biggest_bacteria[i * cutoff:i * cutoff + cutoff] = df.columns.values[:cutoff]
     biggest_bacteria_set = set(biggest_bacteria)
-    colors = get_colors_dictionary(biggest_bacteria_set)
+    colors = get_colors_dictionary_bact(biggest_bacteria_set)
     to_plot = np.zeros((3, len(treats), len(drugs)))
     for i, place in enumerate(types):
         df = pd.read_csv(f"./Data/otu_merged_{place}_{level}{'_qiime' if qiime else ''}.tsv", sep="\t").set_index(
@@ -2117,7 +2149,6 @@ def figure2():
     plot_correlation_gsea(gsea, our)
     compare_significance_go(raw, meta, param="diff_abx" + run_type)
     clusters_compare_mix(antibiotics, treatments, "diff_abx" + run_type)
-
 
 
 def plot_auroc_vs_noise(result: dict, exp_name, response_tag):
