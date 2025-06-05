@@ -1263,7 +1263,7 @@ def get_go(download_anyway=False):
 
 
 def get_selected_df(abx, treat, exp_type, regular=True, fdr=True):
-    df = pd.read_csv(os.path.join(private, exp_type, f"top_correlated_GO_terms_{abx}_{treat}.tsv"), sep="\t")
+    df = pd.read_csv(os.path.join("Data", "clusters_properties", f"top_correlated_GO_terms_{abx}_{treat}.tsv"), sep="\t")
     selected = df[(df['fdr correlation'] < 0.05)]
     return selected
 
