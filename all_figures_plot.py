@@ -463,12 +463,8 @@ def save_colors_dictionary_as_txt(colors_dict, file_path):
 
 
 def plot_composition(data, loc, thresh, colors, level, labels, qiime=True):
-    # data_name = "SI_Mucus_ok134" if loc == 'SI_mucus' else loc
-    # merged_data_meta = pd.read_csv(f"../Data/Abx_16s_data/metadata_{data_name}.tsv", sep="\treat")
-    meta = pd.read_csv(f"../Data/Abx_16s_data/elad_metadata_merge_all.tsv", sep="\t")
-    if qiime:
-        _, meta = get_qiime()
-        meta = meta.reset_index()
+    _, meta = get_qiime()
+    meta = meta.reset_index()
     place_name = "SI-Lumen" if loc.endswith("lumen") else ("SI-MUCUS" if loc.endswith("mucus") else loc)
     meta = meta[meta['Type'] == place_name][["#SampleID", 'antibiotic', 'treatment']]
     meta = meta[np.in1d(meta["#SampleID"], data.index)]
