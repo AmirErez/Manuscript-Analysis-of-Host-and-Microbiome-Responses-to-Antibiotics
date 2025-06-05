@@ -79,7 +79,7 @@ directory = private
 path = os.path.join(private, "clusters_properties\\")
 
 # Note the use of ".." to go up a directory from the current location
-data_folder = os.path.join("..", "Data", "MultiAbx-16s", "MultiAbx-RPKM-RNAseq-B6", "new normalization")
+data_folder = os.path.join("Data")
 
 
 class GeneNode(NodeMixin, JSONEncoder):  # Add Node feature
@@ -767,8 +767,7 @@ def calculate_correlation(root, expression, meta, size, antis, treats, gene_to_c
 
     # pearson = {}
     # spearman = {}
-    folder_dir = f"../Data/MultiAbx-16s/MultiAbx-RPKM-RNAseq-B6/new normalization/"
-    df = pd.read_csv(folder_dir + "transcriptome_2023-09-17-genes_norm_named.tsv", sep="\t")
+    df = pd.read_csv(os.path.join("Data", "transcriptome_2023-09-17-genes_norm_named.tsv"), sep="\t")
     id_to_name = df.set_index('gene_id')['gene_name'].to_dict()
     dist = {}
     # expression = np.log2(gene_expression.fillna(0) + 1)
@@ -1290,34 +1289,11 @@ def get_go_to_ensmusg(bio_path="http://www.ensembl.org/biomart", cache_file="go_
     return go_to_ensmusg
 
 
-# def add_genes_ids(root, go_to_ensmbl_dict):
-#     empty_nodes_counter = 0
-#     added = set()
-#     for i, node in enumerate(PostOrderIter(root)):
-#         node_genes = go_to_ensmbl_dict.get(node.go_id, set())
-#         if node_genes:
-#             node.gene_set = node.gene_set.union(node_genes)
-#             added.add(node.go_id)
-#         else:
-#             empty_nodes_counter += 1
-#         if i % 500 == 0:
-#             print(f"### {i} nodes were updated ###")
-#     print(f"{empty_nodes_counter} empty nodes")
-#     print(f"Out of {len(go_to_ensmbl_dict)} mmusculus_gene_ensembl GOs, {len(added)} were added")
-#     missing = set(go_to_ensmbl_dict.keys()) - added
-#     print(f"Examples:")
-#     folder_dir = f"../Data/MultiAbx-16s/MultiAbx-RPKM-RNAseq-B6/new normalization/"
-#     df = pd.read_csv(folder_dir + "transcriptome_2023-09-17-genes_norm_named.tsv", sep="\t")
-#     id_to_name = df.set_index('gene_id')['gene_name'].to_dict()
-#     for i, go in enumerate(missing):
-#         print(go, [id_to_name[name] for name in go_to_ensmbl_dict[go] if name in id_to_name])
-#         if i == 5:
-#             break
-#     return root
+
 def add_genes_ids(root: Any, go_to_ensmbl_dict: Dict[str, Set[str]],
                   progress_interval: int = 1000,
                   max_examples: int = 5,
-                  gene_name_file: str = "../Data/MultiAbx-16s/MultiAbx-RPKM-RNAseq-B6/new normalization/transcriptome_2023-09-17-genes_norm_named.tsv") -> Any:
+                  gene_name_file: str = "Data/transcriptome_2023-09-17-genes_norm_named.tsv") -> Any:
     empty_nodes_counter = 0
     added: Set[str] = set()
 
@@ -1394,129 +1370,6 @@ def build_tree(download=False):
     return tree, tree_size
 
 
-def read_process_files(new=False, filter_value=0.55, merge_big_abx=True, remove_mitochondrial=True, gene_name=False):
-    partek_df = pd.read_csv(
-        "../Data/MultiAbx-16s/MultiAbx-RPKM-RNAseq-B6/New Partek_bell_all_Normalization_Normalized_counts1.csv")
-    partek_df = partek_df.set_index("Gene Symbol")
-    folder_dir = f"../Data/MultiAbx-16s/MultiAbx-RPKM-RNAseq-B6/new normalization/"
-    genome_df = pd.read_csv(folder_dir + "rpkm_named_genome-2023-09-26.tsv", sep="\t")
-    transcriptome_df = pd.read_csv(folder_dir + "transcriptome_2023-09-17-genes_norm_named.tsv", sep="\t")
-
-    if gene_name:
-        # replace all empty cells in gene_name with the value in gene_id
-        genome_df["gene_name"] = genome_df.apply(
-            lambda row: row["gene_id"] if pd.isna(row["gene_name"]) else row["gene_name"], axis=1)
-        transcriptome_df["gene_name"] = transcriptome_df.apply(
-            lambda row: row["gene_id"] if pd.isna(row["gene_name"]) else row["gene_name"], axis=1)
-        genome_df = genome_df.set_index("gene_name")
-        transcriptome_df = transcriptome_df.set_index("gene_name")
-        genome_df = genome_df.drop("gene_id", axis=1)
-        transcriptome_df = transcriptome_df.drop("gene_id", axis=1)
-    else:
-        ensmus = transcriptome_df.set_index('gene_id')['gene_name'].to_dict()
-        genome_df = genome_df.drop("gene_name", axis=1)
-        transcriptome_df = transcriptome_df.drop("gene_name", axis=1)
-        genome_df.rename(columns={'gene_id': 'gene_name'}, inplace=True)
-        transcriptome_df.rename(columns={'gene_id': 'gene_name'}, inplace=True)
-        genome_df = genome_df.set_index("gene_name")
-        transcriptome_df = transcriptome_df.set_index("gene_name")
-
-    # replace partek nans with 0
-    partek_df = partek_df.fillna(0)
-
-    metadata = get_metadata(data_folder, type="", only_old=not new, filter=filter_value)
-
-    # change genome and transcriptome column names using metadata: replace the name which is 'Sample' to the
-    # equivalent 'ID'
-    genome_df = genome_df.rename(columns=metadata.set_index('Sample')['ID'].to_dict())
-    transcriptome_df = transcriptome_df.rename(columns=metadata.set_index('Sample')['ID'].to_dict())
-
-    # keep in all 3 DFs only columns that are in metadata["ID"].values
-    genome_df = genome_df[[col for col in genome_df.columns if col in metadata["ID"].values]]
-    transcriptome_df = transcriptome_df[[col for col in transcriptome_df.columns if col in metadata["ID"].values]]
-    partek_df = partek_df[[col for col in partek_df.columns if col in metadata["ID"].values]]
-
-    if merge_big_abx:
-        new_path = r"../Data/MultiAbx-16s/MultiAbx-RPKM-RNAseq-B6/new normalization/mRNA_NEBNext_20200908/"
-        new_data = pd.read_csv(new_path + "mRNA_NEBNext_20200908_genes_norm_named.tsv", sep="\t")
-        # sum rows with the same gene_name and drop the gene_id column
-        # new_data = new_data.drop("gene_id", axis=1).groupby("gene_name").sum()
-        new_stats = pd.read_csv(new_path + r"big_abx_stats.csv")
-        # remove all samples with "aligned" < 0.5
-        columns_to_keep = new_stats[new_stats["aligned"] > filter_value]["Sample Name"]
-        # new_data = new_data[columns_to_keep.append(pd.Series(["gene_name", "gene_id"]))]
-        columns_to_keep = columns_to_keep.tolist()  # Convert to list if needed
-        columns_to_keep.append("gene_name")  # Append to the list
-        columns_to_keep.append("gene_id")
-        new_data.columns = [col.split("_")[-1] if "gene" not in col else col for col in new_data.columns]
-        # drop columns C1, C2, C3 as they already exist in the other df
-        new_data = new_data.drop(["C1", "C2", "C3"], axis=1)
-
-        if gene_name:
-            new_data["gene_name"] = new_data.apply(
-                lambda row: row.name if pd.isna(row["gene_name"]) else row["gene_name"], axis=1)
-            new_data = new_data.set_index("gene_name").drop("gene_id", axis=1)
-        else:
-            new_data = new_data.drop("gene_name", axis=1)
-            new_data.rename(columns={'gene_id': 'gene_name'}, inplace=True)
-            new_data = new_data.set_index("gene_name")
-        transcriptome_df = pd.merge(transcriptome_df, new_data, left_index=True, right_index=True)
-        new_metadata = get_metadata(data_folder, type="", only_old=not new, filter=False)
-        new_metadata = new_metadata[new_metadata["ID"].isin(new_data.columns)]
-        new_metadata["add_on_exp"] = True
-        metadata["add_on_exp"] = False
-        metadata = pd.concat([metadata, new_metadata])
-
-    # print indexes that appear twice in genome and transcriptome
-    if len(genome_df.index[genome_df.index.duplicated()]) > 0:
-        print("indexes that appear twice in genome:\n", genome_df.index[genome_df.index.duplicated()])
-        print("and transcriptome:\n", transcriptome_df.index[transcriptome_df.index.duplicated()])
-    genome_df = genome_df.groupby(genome_df.index).sum()
-    transcriptome_df = transcriptome_df.groupby(transcriptome_df.index).sum()
-
-    # remove sparse genes (more than 50% zeros in a row):
-    # check all sparse genes (more than 50% zeros in a row) in each df, and check if the non-zero samples are the same
-    # condition, using the metadata
-    partek_zeros = partek_df[partek_df == 0].count(axis=1)
-    partek_sparse = partek_zeros[partek_zeros > 0.5 * partek_df.shape[1]]
-    genome_zeros = genome_df[genome_df == 0].count(axis=1)
-    genome_sparse = genome_zeros[genome_zeros > 0.5 * genome_df.shape[1]]
-    transcriptome_zeros = transcriptome_df[transcriptome_df == 0].count(axis=1)
-    transcriptome_sparse = transcriptome_zeros[transcriptome_zeros > 0.5 * transcriptome_df.shape[1]]
-    partek_df = partek_df.drop(partek_sparse.index)
-    genome_df = genome_df.drop(genome_sparse.index)
-    transcriptome_df = transcriptome_df.drop(transcriptome_sparse.index)
-
-    if remove_mitochondrial:
-        matching_indices = transcriptome_df.index[
-            transcriptome_df.index.str.lower().isin(set(mitochondrial_genes))].tolist()
-
-        # remove mitochondrial genes from the dataframes
-        genome_df = genome_df.drop(matching_indices, errors='ignore')
-        transcriptome_df = transcriptome_df.drop(matching_indices, errors='ignore')
-        partek_df = partek_df.drop(matching_indices, errors='ignore')
-
-    partek_df = (partek_df * 1000000).divide(partek_df.sum(axis=0), axis=1)
-    genome_df = (genome_df * 1000000).divide(genome_df.sum(axis=0), axis=1)
-    transcriptome_df = (transcriptome_df * 1000000).divide(transcriptome_df.sum(axis=0), axis=1)
-
-    # NOTICE! drop C9, C10, C18, M13, V14 from all DFs and metadata
-    to_remove = ["C9", "C10", "C18", "M13", "V14", "V11"]
-    transcriptome_df = transcriptome_df.drop(to_remove, axis=1)
-    metadata = metadata[~metadata["ID"].isin(to_remove)]
-    # if True:
-    #     metadata.set_index("ID").drop("New/Old", axis=1).to_csv("./Private/to_publish/multi_abx_metadata.csv")
-    #     # rename index to gene_id
-    #     transcriptome_df.index.name = "gene_id"
-    #     # add "genes" column to transcriptome_df using ensmus[gene_name]
-    #     transcriptome_df["gene_name"] = transcriptome_df.index.map(lambda x: ensmus.get(x, ""))
-    #     # reorder "genes" column to be the first
-    #     cols = transcriptome_df.columns.tolist()
-    #     cols = cols[-1:] + cols[:-1]
-    #     transcriptome_df = transcriptome_df[cols]
-    #     transcriptome_df.to_csv("./Private/to_publish/multi_abx_transcriptome.csv")
-    return genome_df, metadata, partek_df, transcriptome_df
-
 
 def get_metadata(folder, type="", only_old=True, filter=0.55):
     meta = pd.read_excel(os.path.join(folder, "metadata.xlsx"))
@@ -1588,8 +1441,7 @@ def transform_data(data, metadata, run_type, skip=False, save=False, gf=False):
     # data = data.drop('V11', axis=1)
     # metadata = metadata.drop(metadata[metadata['ID'] == 'V11'].index)
     if save:
-        folder_dir = f"../Data/MultiAbx-16s/MultiAbx-RPKM-RNAseq-B6/new normalization/"
-        df = pd.read_csv(folder_dir + "transcriptome_2023-09-17-genes_norm_named.tsv", sep="\t")
+        df = pd.read_csv(os.path.join("Data", "transcriptome_2023-09-17-genes_norm_named.tsv"), sep="\t")
         id_to_name = df.set_index('gene_id')['gene_name'].to_dict()
         data['gene_original_name'] = data.index.map(id_to_name)
 
@@ -1620,8 +1472,7 @@ def transform_data(data, metadata, run_type, skip=False, save=False, gf=False):
 
 
 def get_ensmus_dict():
-    folder_dir = f"../Data/MultiAbx-16s/MultiAbx-RPKM-RNAseq-B6/new normalization/"
-    df = pd.read_csv(folder_dir + "transcriptome_2023-09-17-genes_norm_named.tsv", sep="\t")
+    df = pd.read_csv(os.path.join("Data", "transcriptome_2023-09-17-genes_norm_named.tsv"), sep="\t")
     return df.set_index('gene_id')['gene_name'].to_dict()
 
 
