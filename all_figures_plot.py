@@ -530,7 +530,7 @@ def plot_composition(data, loc, thresh, colors, level, labels, qiime=True):
             plt.subplot(rows, cols, j * cols + i + 1).tick_params('x', labelrotation=20, labelsize=30)
     # Convert barplot_data to a DataFrame and save to CSV
     df_barplot = pd.DataFrame(barplot_data)
-    df_barplot.to_csv(os.path.join("Private", "compositional_microbiome_population_{loc}_{thresh}_{level}_barplot_values.csv"),
+    df_barplot.to_csv(os.path.join("Private", f"compositional_microbiome_population_{loc}_{thresh}_{level}_barplot_values.csv"),
                       index=False)
 
     # plt.subplot(rows, cols, cols * rows - (cols // 2)).set_xlabel("Sample")
