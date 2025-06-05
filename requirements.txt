@@ -1,0 +1,13 @@
+numpy
+pandas
+matplotlib
+seaborn
+scikit-learn
+scipy
+goatools
+wget
+anytree
+statsmodels
+requests
+gseapy
+venn

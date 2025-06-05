@@ -9,21 +9,29 @@ from scipy.special import comb
 from venn import venn
 
 from ClusteringGO import build_tree, calculate_correlation, get_ensmus_dict
-from clusters_plot import plot_categories, intersection, z_score_by_pbs
+from all_figures_plot import get_median_matrices
+from clusters_plot import plot_categories, intersection, z_score_by_pbs, get_to_axis, set_figure
 
-data_path = os.path.join("..", "Data")
+data_path = os.path.join("Data")
 spf = os.path.join("SPF time points")
 gf = os.path.join("GF time points")
 private = os.path.join("Private")
 path = os.path.join(private, "clusters_properties")
 
 
+def get_clusters_names_dict(abx, treat, exp_type, space=50):
+    file = pd.read_csv(rf"./Private/clusters_properties/{exp_type}/top_correlated_GO_terms_{abx}_{treat}.tsv", sep="\t")
+    # create a dictionary from column GO term to name
+    clusters_names_dict = dict(zip(file['GO term'], file['name']))
+    clusters_names_dict = {key: value.split(":")[1] for key, value in clusters_names_dict.items()}
+    truncated_dict = {
+        key: ' '.join(value[:value[:space].rfind(' ')].split()) + ' [...]' if len(value) > 40 else value
+        for key, value in clusters_names_dict.items()
+    }
+    return truncated_dict
+
+
 def get_genes_from_df(df, go_cluster):
-    # if len(df[(df["GO term"] == go_cluster)]["genes"].values) == 0:
-    #     print(f"{go_cluster} is missing, filled by zeros")
-    #     line = np.concatenate([np.array([go_cluster]), np.zeros(data.shape[1])])
-    #     temp = temp.append(pd.Series(line), ignore_index=True)
-    #     return temp
     return [gene.strip("{").strip("}").strip(' ').strip("\"").strip("\'") for gene in
             df[(df["GO term"] == go_cluster)]["genes"].values[0].split(",")]
 
@@ -139,18 +147,6 @@ circadian_clock_genes = ["arntl", "bmal1", "chrono", "nfil3", "nr1d1", "per1", "
 genes_of_interest = set(mucin_production).union(set(antimicrobial_peptide_defense)).union(set(circadian_clock_genes))
 
 
-# def reformat_data():
-#     spf_raw_data = pd.read_excel(data_path + spf + "/Partek_Lilach_20220407_Normalization_Normalized_counts.xlsx")
-#     spf_raw_data = spf_raw_data.set_index('Gene Symbol')
-#     spf_raw_data = spf_raw_data.drop(spf_raw_data.columns[0:8], axis=1)
-#     spf_raw_data.to_csv(data_path + spf + "/Partek_Lilach_20220407_Normalization_Normalized_counts.csv")
-#     gf_raw_data = pd.read_csv(data_path + gf + "/Partek-mouseRNA-20220516-_Lilach_SPF_GF_RPKM.tsv", sep="\t")
-#     gf_raw_data = gf_raw_data.set_index('Gene Symbol')
-#     gf_raw_data = gf_raw_data.drop(gf_raw_data.columns[0:8], axis=1)
-#     gf_raw_data.to_csv(data_path + gf + "/Partek-mouseRNA-20220516-_Lilach_SPF_GF_RPKM.csv")
-#     return spf_raw_data, gf_raw_data
-
-
 def run_prep(is_gf, condition, median=False, clock_genes=False, get_categories=False, partek=False):
     # read csv file of metadata
     if partek:
@@ -165,29 +161,6 @@ def run_prep(is_gf, condition, median=False, clock_genes=False, get_categories=F
             data = data.set_index('Gene Symbol')
             data.columns = [name[:-3] for name in data.columns]
     else:
-        # if not is_gf:
-        #     meta = pd.read_csv(os.path.join(data_path, spf, "new normalization", "metadata - SPF.csv"))
-        #     data = pd.read_csv(os.path.join(data_path, spf, "new normalization", "genes_norm_named.tsv"), sep="\t")
-        # else:
-        #     meta = pd.read_csv(os.path.join(data_path, gf, "new normalization", "metadata - GF.csv"))
-        #     # meta["ID"] = [ID.split("_")[1] for ID in meta["ID"]]
-        #     # meta["ID"] = "GF_" + meta["ID"]
-        #     data = pd.read_csv(os.path.join(data_path, gf, "new normalization", "genes_norm_named.tsv"), sep="\t")
-        #     data.columns = [col.split("_")[1] if col.split("_")[0] == "GF" else col for col in data.columns]
-        #     # dict_names = {col.split("_")[1]: col for col in meta["ID"]}
-        #     # # rename meta["ID"] to dict_names[meta["ID"]]
-        #     # data.columns = [dict_names[col] if col in dict_names else col for col in data.columns]
-        # data = data.drop("gene_id", axis=1)
-        # data = data.set_index('gene_name')
-        # # sum rows with the same index
-        # data = data.groupby(data.index).sum()
-        # # meta["old ID"] = meta["ID"]
-        # # meta["ID"] = meta["ID"].astype(str) + "_" + meta["Time_hr"].astype(str) + "_" + meta["Drug"].astype(str)
-        # # use the part after "_" in the ID as the short ID
-        # meta["short ID"] = [ID.split("_")[1] for ID in meta["ID"]]
-        # # create dictionary from meta["ID"] to meta["rename"], and replace data.columns with the dictionary
-        # meta_dict = dict(zip(meta["short ID"], meta["ID"]))
-        # data.columns = [meta_dict[col] for col in data.columns]
         condition_name = "GF" if is_gf else "SPF"
         data, meta = get_meta_data(condition_name)
 
@@ -211,6 +184,9 @@ def run_prep(is_gf, condition, median=False, clock_genes=False, get_categories=F
         genes = [gene for gene in circadian_clock_genes if gene in data.index]
         data = data.loc[genes]
     mice_type = "GF" if is_gf else "SPF"
+    # if folder ./Private/{mice_type.upper()} doesn't exist, create it
+    if not os.path.exists(f"./Private/{mice_type.upper()}"):
+        os.makedirs(f"./Private/{mice_type.upper()}")
     data.to_csv(f"./Private/{mice_type.upper()}/{mice_type} data.txt", sep='\t')
     # save data.index to file and ignore the index of the line
     pd.Series(data.index).to_csv(f"./Private/{mice_type.upper()}/annot_data.txt",
@@ -225,17 +201,17 @@ def reformat_meta(filename, meta_name):
 
 
 def get_meta_data(cond, filter_threshold=0.55, remove_mitochondrial=True, normalized_only=False):
-    meta = pd.read_csv(f"../Data/{cond.upper()} time points/new normalization/metadata.csv")
-    data = pd.read_csv(f"../Data/{cond.upper()} time points/new normalization/genes_norm_named.tsv", sep="\t")
-    stats = pd.read_csv(f"../Data/{cond.upper()} time points/new normalization/stats_{cond.lower()}.csv")
+    meta = pd.read_csv(f"./Data/{cond.upper()} time points/metadata.csv")
+    data = pd.read_csv(f"./Data/{cond.upper()} time points/genes_norm_named.tsv", sep="\t")
+    stats = pd.read_csv(f"./Data/{cond.upper()} time points/stats_{cond.lower()}.csv")
     # create new column "aligned" from stats["% Aligned"] by removing last char (%) and converting to float
     stats["aligned"] = stats["% Aligned"].apply(lambda x: float(x[:-1]))
     assert (stats["aligned"].shape[0] == stats[stats["aligned"] > 80].shape[0]), "not all samples are aligned > 80%"
     samples = stats[stats['aligned'] > filter_threshold]['Sample Name']
-    # print the filtered out samples, sorted lexically
-    print(sorted([sample for sample in stats['Sample Name'] if sample not in samples.values]))
+    # # print the filtered out samples, sorted lexically
+    # print(sorted([sample for sample in stats['Sample Name'] if sample not in samples.values]))
 
-    ensmus = data.set_index('gene_id')['gene_name'].to_dict()
+    # ensmus = data.set_index('gene_id')['gene_name'].to_dict()
     data = data.set_index("gene_id")
     data = data.drop("gene_name", axis=1)
     data = data[~data.index.isna()]
@@ -267,28 +243,8 @@ def get_meta_data(cond, filter_threshold=0.55, remove_mitochondrial=True, normal
         data = data.drop(matching_indices, errors='ignore')
 
     data = (data * 1_000_000).divide(data.sum(axis=0), axis=1)
-    # if True:
-    #     # rename index to gene_id
-    #     data.index.name = "gene_id"
-    #     # add "genes" column to transcriptome_df using ensmus[gene_name]
-    #     data["gene_name"] = data.index.map(lambda x: ensmus.get(x, ""))
-    #     # reorder "genes" column to be the first
-    #     cols = data.columns.tolist()
-    #     cols = cols[-1:] + cols[:-1]
-    #     data = data[cols]
-    #     data.to_csv(f"./Private/to_publish/{cond}_data.csv")
     if normalized_only:
         return data, meta
-    # data = data.set_index("gene_name")
-    # data = data.drop("gene_id", axis=1)
-    # # sum rows with the same gene name
-    # print(f"empty gene id: {data.index.isna().sum()}. Dropping them")
-    # # drop the data.index.isna() rows
-    # data = data[~data.index.isna()]
-    # # print the indexes that appear more than once, using Counter
-    # print([(k, v) for k, v in Counter(data.index).items() if v > 1])
-    # print(f"merging duplicated indexes")
-    # data = data.groupby(data.index).sum()
 
     # transform data
     from ClusteringGO import impute_zeros
@@ -321,50 +277,20 @@ def zscore_all_by_pbs(data, metadata):
 
 def run_spf(to_cluster, plot, intersect):
     exp_type = 'spf'
-    spf_data, spf_meta = spf_data_meta("/SPF time points")
+    spf_data, spf_meta = get_meta_data("SPF")
     run(exp_type, spf_data, spf_meta, plot, to_cluster, intersect)
-
-
-def spf_data_meta(spf, partek=False):
-    # meta = reformat_meta("/MICE 7-10.3.22.xls", "/MICE 7-10.3.22.csv")
-    if partek:
-        meta = pd.read_csv(data_path + spf + "/MICE 7-10.3.22.csv")
-        data = pd.read_csv(data_path + spf + "/Partek_Lilach_20220407_Normalization_Normalized_counts.csv")
-        data = data.set_index('Gene Symbol')
-        return data, meta
-    return get_meta_data("SPF")
 
 
 def run_gf(to_cluster, plot, intersect):
     exp_type = 'gf'
-    gf_data, gf_meta = gf_data_meta("/GF time points")
+    gf_data, gf_meta = get_meta_data("GF")
     run(exp_type, gf_data, gf_meta, plot, to_cluster, intersect, regular=False)
 
 
-def gf_data_meta(gf, partek=False):
-    if partek:
-        # meta = reformat_meta("/GeneMat_RNAseq_ShaiBel.xls", "/GeneMat_RNAseq_ShaiBel.csv")
-        meta = pd.read_csv(data_path + gf + "/GeneMat_RNAseq_ShaiBel.csv")
-        data = pd.read_csv(data_path + gf + "/Partek-mouseRNA-20220516-_Lilach_SPF_GF_RPKM.csv")
-        # data = pd.read_csv(data_path + is_gf + "/temp_from_ShaiBel_file.csv")
-        data = data.set_index('Gene Symbol')
-        data.columns = [name[:-3] for name in data.columns]
-        data = data[meta['ID']]
-        return data, meta
-    return get_meta_data("GF")
-
-
 def run(exp_type, data, meta, plot, to_cluster, intersect, regular=False, gene_to_check="H2-Ab1"):
-    # data = data.replace(0, np.nan)
-    # # data = np.log10(data)
-    # data = impute_zeros(data, meta, 'Time_hr', "_" + exp_type, skip_if_exist=True)
     if to_cluster:
-        # data = np.log10(data)
-        # data.to_csv(f'./Private/imputed_all_log_zeros_removed_{exp_type}.csv')
-
         # replace all zeros with nan
         tree, tree_size = build_tree()
-
         calculate_correlation(tree, data, meta, tree_size, antibiotics, time_hr, gene_to_check, exp_type, 'Time_hr',
                               significance_threshold=0.05)  # note
         # save_median_all_conditions(meta, data, antibiotics, time_hr, "Time_hr", exp_type)
@@ -376,88 +302,6 @@ def run(exp_type, data, meta, plot, to_cluster, intersect, regular=False, gene_t
         # dimension_reduction(data.loc[selected_data], meta, "Time_hr")
     if intersect:
         intersection(antibiotics, time_hr, "/" + exp_type)
-
-
-def plot_h2ab1_clusters(exp_type, title):
-    df = pd.read_csv(path + f"{exp_type}/top_correlated_GO_terms.tsv", sep='\t')
-    # selected = df[(df['MWU'] <= 0.05) & (df['size'] >= 2) & (
-    #         df['better than parent'] is not False) & (df['better than random correlation'].astype(str) == "True")
-    #               & (df['with H2-Ab1?'].astype(str) == "True")]
-    go_term = "GO:0042110" if title == "T cell" else "GO:0050853"
-    selected = df[(df['GO term'] == go_term) & (df['Condition'] == 23)]
-    if exp_type == "gf":
-        data, meta = gf_data_meta(exp_type)
-    elif exp_type == "spf":
-        data, meta = spf_data_meta(exp_type)
-    else:
-        print("unrecognizable experiment mice_type. abort")
-        return
-    data = np.arcsinh(data)
-    abx_data = meta[(meta['Drug'] == 'Vanco') & (meta['Time_hr'] == 23)]
-    pbs_data = meta[(meta['Drug'] == 'PBS') & (meta['Time_hr'] == 23)]
-    plot_clusters_separately(selected, data, abx_data, pbs_data, title)
-
-
-def get_circadian_clusters(circadian_clock_genes, data, meta_data, exp_type, condition="Time_hr"):
-    # should the data be log(1+x)?
-    # plot_clock_genes(genes, condition, data, exp_type, meta_data, True)
-
-    plot_best(condition, data, exp_type, meta_data)
-
-    # # plot clock genes clusters median data
-    # genes_df = pd.DataFrame()
-    # for anti in antibiotics:
-    #     for treat in time_hr:
-    #         temp = pd.DataFrame()
-    #         df = pd.read_csv(f'./Private/clusters_properties/{exp_type}/top_correlated_GO_terms_{anti}_{treat}.tsv',
-    #                          sep="\treat")
-    #         abx = meta_data[(meta_data['Drug'] == anti) & (meta_data[condition] == treat)]
-    #         pbs = meta_data[(meta_data['Drug'] == 'PBS') & (meta_data[condition] == treat)]
-    #         mice = pd.concat((abx['ID'], pbs['ID']))
-    #         for go_cluster in clusters[anti][treat]:
-    #             for enhanced in ["True", "False"]:
-    #                 genes = [gene.strip("{").strip("}").strip(' ').strip("\"").strip("\'") for gene in
-    #                          df[(df["GO term"] == go_cluster) & (df["enhanced?"] == enhanced)]["genes"].to_string().
-    #                          split(",")]
-    #                 relevant_genes = [gene for gene in genes if gene in data.index]
-    #                 median = np.median(data[mice].loc[relevant_genes], axis=0)
-    #                 if np.nan in median:
-    #                     continue
-    #                 row = np.concatenate([np.array([go_cluster]), median])
-    #                 temp = temp.append(pd.Series(row), ignore_index=True)
-    #         temp.columns = pd.Series(["GO term"]).append(mice)
-    #         normalized_median = z_score_by_pbs(temp.dropna(axis=0), abx, pbs)
-    #         genes_df = pd.concat([genes_df, normalized_median], axis=0)
-    # genes_df = genes_df.set_index(0).astype('f')
-    # sns.heatmap(genes_df, cmap="vlag", xticklabels=True)
-    # plt.savefig(f"./Private/analysis/is_gf spf/{exp_type} clock_clusters.png")
-    # plt.show()
-
-
-def plot_best(condition, data, exp_type, meta_data, plot_intersection=False):
-    """
-    plot medians of best clusters, regardless of clock genes
-    """
-    abx, genes_df, medians, genes_dict = collect_medians(condition, data, exp_type, meta_data, plot_intersection)
-    # stds = np.array(
-    #     [np.std(np.array([median_dict[antibiotics[0]][t][go_cluster] for t in time_hr]).ravel()) for
-    #      go_cluster in all_listed])
-    genes_df = genes_df.div(medians, axis=0)
-    # clustering = sns.clustermap(data=genes_df, cmap="vlag", row_cluster=True, col_cluster=False, xticklabels=True)
-    # order = clustering.dendrogram_row.reordered_ind
-    # genes_df = genes_df.iloc[order]
-    # plt.close()
-    xticklabels = np.array([['', f"  abx {t - 6}", '', '', '', f"  pbs {t - 6}", '', ''] for t in time_hr]).flatten()
-    ax = sns.heatmap(np.log(1 + genes_df), cmap="vlag", xticklabels=xticklabels, vmax=1.3)
-    # ax = sns.heatmap((genes_df-genes_df.mean())/genes_df.std(), cmap="vlag", xticklabels=xticklabels)
-    # ax = sns.heatmap(np.trunc(genes_df), cmap="vlag", xticklabels=xticklabels, vmax=3, vmin=-3)
-    ax.vlines([abx.shape[0] * 2 * i for i in range(1, len(time_hr))], *ax.get_ylim())
-    plt.xlabel('ZT')
-    plt.ylabel('GO cluster')
-    z_score_label = ""  # ", z-score by PBS"
-    plt.title(f"{exp_type.upper()} best clusters{z_score_label}")
-    plt.savefig(f"./Private/analysis/{exp_type}/{exp_type} best_clusters.png", bbox_inches="tight")
-    plt.show()
 
 
 def collect_medians(condition, data, exp_type, meta_data, plot_intersection):
@@ -503,15 +347,6 @@ def plot_genes(gf_data, spf_data, filter_type, go_dict, spf_all, first="GF", sec
         spf_row = pd.DataFrame(spf_data.loc[i])
         # concatenate the 2 dataframes to one long column
         df = pd.concat([df, spf_row], axis=0)
-        # sort df lexico-graphically by index
-        # df = df.sort_index()
-        # # df = np.log2(df + 1)
-        # df['Time_hr'] = np.array(
-        #     [[f"{time} {mice}" for time in np.array([["-1"] * 8, ["5"] * 8, ["11"] * 8, ["17"] * 8]).ravel()]
-        #      for mice in [first, second]]).ravel()
-        # # print(df['Time_hr'])
-        # df['abx'] = np.array(["ABX", "ABX", "ABX", "ABX", "PBS", "PBS", "PBS", "PBS"] * 8)
-        # df['Type'] = [first] * 32 + [second] * 32
         # make a col "time" with index.split("_")[2] if index starts with "GF" else index.split("_")[1]
         df['time'] = [ind.split("_")[-2] for ind in df.index]
         df['abx'] = [ind.split("_")[-1] for ind in df.index]
@@ -584,11 +419,7 @@ def plot_genes(gf_data, spf_data, filter_type, go_dict, spf_all, first="GF", sec
         # f"../../periodicity detection/JTK/results/{filter_type}/{first} {filter_type} {row_gf.name[3:]}.png")
         plt.show()
         plt.close()
-        # add line to res df
-        # res = res.append(
-        #     {"gene": row_gf.name, f"{second} PBS-abx": spf_type, f"{first} PBS": {go_dict[1].loc[row_gf.name][1]},
-        #      f"{first} ABX": {go_dict[0].loc[row_gf.name][1]}, f"{first} PBS-abx": filter_type},
-        #     ignore_index=True)
+
         # Create a new row as a DataFrame
         new_row = pd.DataFrame([{
             "gene": row_gf.name,
@@ -806,6 +637,12 @@ def find_all_cycles():
         loc = 1 if mice_type == "SPF" else 2
         for anti in ["PBS", "Vanco"]:
             print(f"Starting {mice_type} {anti}")
+            if os.path.exists(f"./Private/{mice_type.upper()}/{mice_type} cycles {anti} results.txt"):
+                print(f"Results for {mice_type} {anti} already exist, skipping...")
+                continue
+            # elif private/f"{mice_type.upper()} folder does not exist, create it
+            if not os.path.exists(f"./Private/{mice_type.upper()}"):
+                os.makedirs(f"./Private/{mice_type.upper()}")
             data = pd.read_csv(f"./Private/{mice_type.upper()}/{mice_type} data {anti}.txt", sep="\t")
             other_anti = "Vanco" if anti == "PBS" else "PBS"
             other_data = pd.read_csv(f"./Private/{mice_type.upper()}/{mice_type} data {other_anti}.txt", sep="\t")
@@ -837,6 +674,8 @@ def collect_stat(count, same, not_same, gene, abx, pbs):
 
 def plot_all_data(categories, median=False):
     if not median:
+        run_prep(is_gf=True, condition=None, median=median, clock_genes=False, get_categories=True)
+        run_prep(is_gf=False, condition=None, median=median, clock_genes=False, get_categories=True)
         gf = pd.read_csv(f"./Private/GF/GF data.txt", sep='\t').set_index('gene_id')
         spf = pd.read_csv(f"./Private/SPF/SPF data.txt", sep='\t').set_index('gene_id')
     else:
@@ -995,10 +834,6 @@ def detect_change():
                           header=None).set_index(0)
         pbs = pd.read_csv(f"./Private/{mice_type.upper()}/{mice_type} cycles PBS results.txt", sep="\t",
                           header=None).set_index(0)
-        # both = {}
-        # count = 0
-        # same = {}
-        # not_same = {}
         # iterate over all genes and compare string in abx vs pbs
         for gene in abx.index:
             # both[gene] = (abx.loc[gene][1], pbs.loc[gene][1])
@@ -1131,12 +966,6 @@ v_min_dict = {"SPF": {"maintained": -1.5, "maintained_cycle": -2, "enhanced": -2
               "GF": {"maintained": -1, "maintained_cycle": -4, "enhanced": -2, "suppressed": -2, "clock": -2}}
 
 
-# v_max_dict = {"SPF": {"maintained": 1.5, "maintained_cycle": 3, "enhanced": 2, "suppressed": 1.5, "clock": 2},
-#               "GF": {"maintained": 1, "maintained_cycle": 4, "enhanced": 1.5, "suppressed": 1.5, "clock": 2}}
-# v_min_dict = {"SPF": {"maintained": -1.5, "maintained_cycle": -2, "enhanced": -1, "suppressed": -1.5, "clock": -2},
-#               "GF": {"maintained": -1, "maintained_cycle": -4, "enhanced": -1.5, "suppressed": -1.5, "clock": -2}}
-
-
 def plot_genes_heatmap(combine, genes, mice_type, genes_type, abx, pbs, classification, type_, vert_locs=None,
                        save_df=False):
     ensmus_dict = get_ensmus_dict()
@@ -1164,8 +993,8 @@ def plot_genes_heatmap(combine, genes, mice_type, genes_type, abx, pbs, classifi
     orig_sorted_cols = [col.split("_")[0] for col in sorted_cols]
     orig_data = orig_data[orig_sorted_cols]
     orig_data.index = [ensmus_dict[gene] for gene in orig_data.index]
-    orig_data.to_csv(f"./Private/time points/{mice_type}_{genes_type}_data_{type_}.csv")
-    to_show.to_csv(f"./Private/time points/{mice_type}_{genes_type}_data_{type_}_z-scored.csv")
+    orig_data.to_csv(f"./Private/{mice_type}_{genes_type}_data_{type_}.csv")
+    to_show.to_csv(f"./Private/{mice_type}_{genes_type}_data_{type_}_z-scored.csv")
 
     if genes_type in v_max_dict[mice_type]:
         max_val = v_max_dict[mice_type][genes_type]
@@ -1206,16 +1035,16 @@ def plot_genes_heatmap(combine, genes, mice_type, genes_type, abx, pbs, classifi
     plt.xlabel("Time point")
     plt.ylabel("Gene")
     plt.title(f"{mice_type} {genes_type} genes")
-    plt.savefig(f"./Private/time points/{mice_type}_{genes_type}_heatmap_{type_}.png", bbox_inches="tight")
+    plt.savefig(f"./Private/{mice_type}_{genes_type}_heatmap_{type_}.png", bbox_inches="tight")
     plt.show()
     plt.close()
 
 
 def unite_go_clusters(median=True):
-    data_gf, meta_gf, categories_gf, genes_dict_gf = run_prep(is_gf=True, condition=None, median=median,
-                                                              clock_genes=False, get_categories=True)
     data_spf, meta_spf, categories_spf, genes_dict_spf = run_prep(is_gf=False, condition=None, median=median,
                                                                   clock_genes=False, get_categories=True)
+    data_gf, meta_gf, categories_gf, genes_dict_gf = run_prep(is_gf=True, condition=None, median=median,
+                                                              clock_genes=False, get_categories=True)
 
     all_clusters = set(categories_gf).union(set(categories_spf))
     genes_dict = genes_dict_gf
@@ -1223,11 +1052,7 @@ def unite_go_clusters(median=True):
     for exp_type in ["gf", "spf"]:
         data = data_gf if exp_type == "gf" else data_spf
         meta_data = meta_gf if exp_type == "gf" else meta_spf
-        # if median:
-        #     abx, genes_df, median_dict = get_medians_given_categories(genes_dict, all_clusters, 'Time_hr', data,
-        #                                                               exp_type, meta_data)
-        # else:
-        #     genes_df = data
+
         genes_df = data
         for condition in ["Vanco", "PBS"]:
             temp = meta_data[meta_data["Drug"] == condition].reset_index()
@@ -1284,12 +1109,6 @@ def plot_clock_genes_all(ensmus_clock_genes):
         combine = data.loc[ensmus_clock_genes]
         cols = cols_spf if mice_type == "SPF" else cols_gf
         combine = combine[cols]
-
-        # order = sns.clustermap(combine, cmap="coolwarm", col_cluster=False, row_cluster=True,
-        #                        ).dendrogram_row.reordered_ind
-        # ensmus_clock_genes = np.array(ensmus_clock_genes)[order]
-        # plt.show()
-        # plt.close()
 
         meta_abx = meta.loc[meta["Drug"] == "Vanco"]
         meta_pbs = meta.loc[meta["Drug"] == "PBS"]
@@ -1359,7 +1178,7 @@ def save_dictionary(categories_dict, txt=False):
     ensmus_dict = get_ensmus_dict()
     zt = ["ZT-1", "ZT5", "ZT11", "ZT17"]
     if txt:
-        with open(f"./Private/time points/categories_dict_hour.txt", "w") as f:
+        with open(f"./Private/categories_dict_hour.txt", "w") as f:
             for mice in categories_dict:
                 # f.write(mice + "\n")
                 # sort categories_dict[mice] lexico-graphically
@@ -1517,329 +1336,6 @@ def get_significance_annotation(p_value, observed, expected):
         return f"{left_pad}↓\n{stars}"  # Significantly lower
 
 
-#
-# def time_intersections(all_dict):
-#     """
-#         Analyzes and visualizes intersections between SPF and GF genes across time points.
-#     """
-#     from ClusteringGO import set_plot_defaults
-#     from matplotlib_venn import venn2
-#     import matplotlib.pyplot as plt
-#
-#
-#     all_spf = get_meta_data("SPF")[0].index
-#     all_gf = get_meta_data("GF")[0].index
-#     results = {}
-#
-#     # Determine the maximum set size across all time points for consistent scaling
-#     all_set_sizes = []
-#     for direction in ["enhanced", "suppressed"]:
-#         for time in range(4):
-#             spf_genes = all_dict["SPF"][f"{direction}_{time}"]
-#             gf_genes = all_dict["GF"][f"{direction}_{time}"]
-#             # all_set_sizes.append(len(spf_genes))
-#             # all_set_sizes.append(len(gf_genes))
-#             all_set_sizes.append(len(spf_genes.union(gf_genes)))  # Use union to get the total size of both sets
-#
-#     # Use the maximum size as a reference for scaling
-#     max_set_size = np.mean(all_set_sizes)
-#
-#     # Set global font size
-#     plt.rcParams.update({'font.size': 14})  # Increased font size
-#
-#     for direction in ["enhanced", "suppressed"]:
-#         results[direction] = {}
-#         for time in range(4):
-#             spf_genes = all_dict["SPF"][f"{direction}_{time}"]
-#             gf_genes = all_dict["GF"][f"{direction}_{time}"]
-#             total_size = len(spf_genes) + len(gf_genes) - len(spf_genes.intersection(gf_genes))
-#
-#             # Analyze intersection
-#             stats = analyze_set_intersection(spf_genes, gf_genes, all_spf, all_gf)
-#             results[direction][time] = stats
-#
-#             # Create and save Venn diagram with statistics
-#             # plt.figure(figsize=(5, 4))  # Increased figure size
-#             fig, ax = plt.subplots(figsize=(5, 4))  # Replaces plt.figure(...)
-#             # ax.autoscale(False)
-#             # ax.set_xlim(-1 * total_size / max_set_size, total_size / max_set_size)
-#             # ax.set_ylim(-1 * total_size / max_set_size, total_size / max_set_size)
-#             # ax.set_aspect('equal')  # Keep aspect ratio square
-#
-#             # Create Venn diagram with normalized sizes
-#             v = venn2([spf_genes, gf_genes], set_labels=("SPF", "GF"), ax=ax,
-#                       # normalize_to=1.0)  # Normalize to max size for consistency
-#                       # normalize_to=total_size/max_set_size)  # Normalize to max size for consistency
-#                       normalize_to=max_set_size/total_size)  # Normalize to max size for consistency
-#             # ax.autoscale(False)
-#             # ax.set_xlim(-1 * total_size / max_set_size, total_size / max_set_size)
-#             # ax.set_ylim(-1 * total_size / max_set_size, total_size / max_set_size)
-#             # ax.set_aspect('equal')  # Keep aspect ratio square
-#
-#
-#             # Set font sizes for labels
-#             for label in v.set_labels:
-#                 if label is not None:
-#                     label.set_fontsize(14)  # Increased set label font size
-#
-#             for text in v.subset_labels:
-#                 if text is not None:
-#                     text.set_fontsize(14)  # Increased count label font size
-#
-#             plt.title(f"{direction.capitalize()} ZT {time * 6 - 1}\n"
-#                       f"(SPF and GF common genes: {stats['common_universe_size']})",
-#                       fontsize=14)  # Increased title font size
-#
-#             # Add significance stars to the diagram
-#             if v is not None and v.subset_labels is not None:
-#                 # Get the intersection label (should be index 2)
-#                 intersection_label = v.subset_labels[2]
-#                 if intersection_label is not None:
-#                     # Get the position from the text object
-#                     x = intersection_label.get_position()[0]
-#                     y = intersection_label.get_position()[1]
-#                     # Add significance stars above the intersection number
-#                     if stats['significance_annotation'] != "ns":
-#                         plt.text(x, y + .02, stats['significance_annotation'],
-#                                  ha='center', va='bottom', fontsize=14)  # Increased font size
-#                     else:
-#                         plt.text(x, y + .05, stats['significance_annotation'],
-#                                  ha='center', va='bottom', fontsize=10)
-#                 else:
-#                     # # If there's no intersection, still add significance annotation
-#                     # plt.text(0.5, 0.5, stats['significance_annotation'],
-#                     #          ha='center', va='bottom', fontsize=14)  # Increased font size
-#                     # If there's no intersection, place stars between the two circles
-#                     # Get the centers of both circles
-#                     if v.patches is not None and len(v.patches) >= 2:
-#                         # Calculate position between the two circles
-#                         if hasattr(v.patches[0], 'center') and hasattr(v.patches[1], 'center'):
-#                             x1, y1 = v.patches[0].center
-#                             x2, y2 = v.patches[1].center
-#                             mid_x = (x1 + x2) / 2
-#                             mid_y = (y1 + y2) / 2
-#                         else:
-#                             # Fallback if center attribute is not available
-#                             mid_x = 0.5
-#                             mid_y = 0.5
-#
-#                         plt.text(mid_x, mid_y, stats['significance_annotation'],
-#                                  ha='center', va='center', fontsize=14)
-#                     else:
-#                         # Ultimate fallback if patches or centers aren't available
-#                         plt.text(0.5, 0.5, stats['significance_annotation'],
-#                                  ha='center', va='center', fontsize=14)
-#
-#                     print("No intersection label found")
-#                     print(time, direction)
-#                     print(stats['significance_annotation'])
-#
-#             # plt.tight_layout()
-#             # set_plot_defaults()
-#             plt.savefig(f"./Private/time points/{direction}_{time * 6 - 1}_venn.png", dpi=300)
-#             plt.savefig(f"./Private/time points/{direction}_{time * 6 - 1}_venn.svg")
-#             plt.show()
-#             plt.close()
-#
-#     return results
-
-# def time_intersections(all_dict):
-#     """
-#     Analyzes and visualizes intersections between SPF and GF genes across time points
-#     using manually created Venn diagrams with proportional circle sizes.
-#     """
-#     import matplotlib.pyplot as plt
-#     import numpy as np
-#     from matplotlib.patches import Circle
-#     from ClusteringGO import set_plot_defaults
-#
-#     all_spf = get_meta_data("SPF")[0].index
-#     all_gf = get_meta_data("GF")[0].index
-#     results = {}
-#
-#     # Determine the maximum set size across all time points for consistent scaling
-#     all_set_sizes = []
-#     for direction in ["enhanced", "suppressed"]:
-#         for time in range(4):
-#             spf_genes = all_dict["SPF"][f"{direction}_{time}"]
-#             gf_genes = all_dict["GF"][f"{direction}_{time}"]
-#             all_set_sizes.append(len(spf_genes))
-#             all_set_sizes.append(len(gf_genes))
-#
-#     # Use the maximum size as a reference for scaling
-#     max_set_size = max(all_set_sizes)
-#
-#     # Function to create manual Venn diagram
-#     def create_manual_venn(set1, set2, ax, set_labels=None, normalize_to=None):
-#         """
-#         Creates a manual Venn diagram with two circles.
-#
-#         Parameters:
-#         - set1, set2: The two sets to compare
-#         - ax: Matplotlib axis to draw on
-#         - set_labels: Tuple of labels for the two sets
-#         - normalize_to: Value to normalize circle sizes to
-#
-#         Returns:
-#         - Dictionary with circle objects and text elements
-#         """
-#         set1_size = len(set1)
-#         set2_size = len(set2)
-#         intersection_size = len(set1.intersection(set2))
-#
-#         # Calculate relative sizes for the circles
-#         if normalize_to:
-#             # Use normalize_to to scale circle sizes
-#             scaling_factor = normalize_to / max_set_size
-#             radius1 = np.sqrt(set1_size * scaling_factor / np.pi) * 1.5  # Increased overall size
-#             radius2 = np.sqrt(set2_size * scaling_factor / np.pi) * 1.5  # Increased overall size
-#         else:
-#             # Default scaling if no normalization provided
-#             radius1 = np.sqrt(set1_size / np.pi) * 1.5  # Increased overall size
-#             radius2 = np.sqrt(set2_size / np.pi) * 1.5  # Increased overall size
-#
-#         # Position circles based on intersection size
-#         # Adjust overlap to represent intersection visually
-#         total_size = set1_size + set2_size
-#         if total_size == 0:
-#             overlap_ratio = 0
-#         else:
-#             # Increase the visual representation of intersection
-#             # This makes the intersection appear larger than mathematically accurate
-#             # but makes small intersections more visible
-#             overlap_ratio = (intersection_size / total_size) * 1.3
-#             if overlap_ratio > 0 and overlap_ratio < 0.1:
-#                 overlap_ratio = 0.1  # Ensure small intersections are still visible
-#
-#         # Base distance calculation
-#         if overlap_ratio == 1:  # Complete overlap
-#             distance = 0
-#         elif overlap_ratio == 0:  # No overlap
-#             distance = radius1 + radius2 + 1  # Slight separation
-#         else:
-#             # Manual adjustment for better visualization of intersection
-#             # Smaller distance = more overlap
-#             max_distance = radius1 + radius2
-#             min_distance = max(0, max(radius1, radius2) - min(radius1, radius2))
-#             # Linear interpolation with adjusted overlap for better visual
-#             distance = max_distance - (overlap_ratio * 1.3) * (max_distance - min_distance)
-#
-#         # Create circles with new colors (green for SPF, red for GF)
-#         circle1 = Circle((-distance / 2, 0), radius1, alpha=0.5, edgecolor='none', facecolor='#3333FF')  # Stronger blue
-#         circle2 = Circle((distance / 2, 0), radius2, alpha=0.5, edgecolor='none', facecolor='#FFCC00')  # Stronger yellow
-#
-#         # Add circles to the plot
-#         ax.add_patch(circle1)
-#         ax.add_patch(circle2)
-#
-#         # Set labels with larger font size
-#         if set_labels:
-#             ax.text(-distance / 2, -radius1 - 0.1, set_labels[0], ha='center', va='top', fontsize=16, weight='bold')
-#             ax.text(distance / 2, -radius2 - 0.1, set_labels[1], ha='center', va='top', fontsize=16, weight='bold')
-#
-#         # Calculate unique elements
-#         only_set1 = set1_size - intersection_size
-#         only_set2 = set2_size - intersection_size
-#
-#         # Add count labels with larger font size
-#         # For first set unique elements
-#         ax.text(-distance / 2 - radius1 / 3, 0, str(only_set1), ha='center', va='center', fontsize=16, weight='bold')
-#
-#         # For second set unique elements
-#         ax.text(distance / 2 + radius2 / 3, 0, str(only_set2), ha='center', va='center', fontsize=16, weight='bold')
-#
-#         # For intersection elements - improved positioning
-#         if intersection_size > 0:
-#             # Position the intersection label at the center of the overlapping region
-#             ax.text(0, 0, str(intersection_size), ha='center', va='center', fontsize=16, weight='bold')
-#
-#         # Return objects for later modification if needed
-#         return {
-#             'circle1': circle1,
-#             'circle2': circle2,
-#             'center1': (-distance / 2, 0),
-#             'center2': (distance / 2, 0),
-#             'radius1': radius1,
-#             'radius2': radius2,
-#             'distance': distance,
-#             'intersection_size': intersection_size
-#         }
-#
-#     # Set global font size
-#     plt.rcParams.update({'font.size': 16})
-#
-#     for direction in ["enhanced", "suppressed"]:
-#         results[direction] = {}
-#         for time in range(4):
-#             spf_genes = set(all_dict["SPF"][f"{direction}_{time}"])
-#             gf_genes = set(all_dict["GF"][f"{direction}_{time}"])
-#
-#             # Analyze intersection
-#             stats = analyze_set_intersection(spf_genes, gf_genes, all_spf, all_gf)
-#             results[direction][time] = stats
-#
-#             # Create figure and axis with adjusted size
-#             fig, ax = plt.subplots(figsize=(7, 5))  # Increased figure size
-#
-#             # Create Venn diagram with normalized sizes
-#             normalize_factor = 1  # Increased to make circles larger in the figure
-#
-#             venn_elements = create_manual_venn(
-#                 spf_genes, gf_genes,
-#                 ax,
-#                 set_labels=("SPF", "GF"),
-#                 # normalize_to=normalize_factor
-#             )
-#
-#             # Set title with larger font
-#             plt.title(f"{direction.capitalize()} ZT {time * 6 - 1}\n"
-#                       f"(SPF and GF common genes: {stats['common_universe_size']})",
-#                       fontsize=16, pad=20)
-#
-#             # Add significance stars with improved positioning
-#             if venn_elements['intersection_size'] > 0:
-#                 # If there's an intersection, place significance above the intersection count
-#                 if stats['significance_annotation'] != "ns":
-#                     ax.text(0, -0.2, stats['significance_annotation'],
-#                             ha='center', va='center', fontsize=16, weight='bold')
-#                 else:
-#                     ax.text(0, -0.2, stats['significance_annotation'],
-#                             ha='center', va='center', fontsize=14)
-#             else:
-#                 # If there's no intersection, place stars between the two circles
-#                 mid_x = (venn_elements['center1'][0] + venn_elements['center2'][0]) / 2
-#                 mid_y = (venn_elements['center1'][1] + venn_elements['center2'][1]) / 2
-#                 ax.text(mid_x, mid_y, stats['significance_annotation'],
-#                         ha='center', va='center', fontsize=16, weight='bold')
-#
-#             # Calculate appropriate axis limits based on circle sizes and positions
-#             max_radius = max(venn_elements['radius1'], venn_elements['radius2'])
-#             max_distance = abs(venn_elements['center1'][0] - venn_elements['center2'][0])
-#
-#             # Set axis properties with padding to ensure circles are fully visible
-#             padding = max_radius * 0.3  # 20% padding around the circles
-#             x_min = min(venn_elements['center1'][0] - venn_elements['radius1'],
-#                         venn_elements['center2'][0] - venn_elements['radius2']) - padding
-#             x_max = max(venn_elements['center1'][0] + venn_elements['radius1'],
-#                         venn_elements['center2'][0] + venn_elements['radius2']) + padding
-#             y_min = -max_radius - padding
-#             y_max = max_radius + padding
-#
-#             ax.set_aspect('equal')
-#             ax.set_xlim(x_min, x_max)
-#             ax.set_ylim(y_min, y_max)
-#             ax.axis('off')  # Hide axes
-#
-#             # No legend as requested
-#
-#             # plt.tight_layout()
-#             set_plot_defaults()
-#             plt.savefig(f"./Private/time points/{direction}{time * 6 - 1}venn.png", dpi=300)
-#             plt.savefig(f"./Private/time points/{direction}{time * 6 - 1}_venn.svg")
-#             plt.show()
-#             plt.close()
-#
-#     return results
 def time_intersections(all_dict):
     """
     Analyzes and visualizes intersections between SPF and GF genes across time points
@@ -1860,9 +1356,6 @@ def time_intersections(all_dict):
             gf_genes = all_dict["GF"][f"{direction}_{time}"]
             all_set_sizes.append(len(spf_genes))
             all_set_sizes.append(len(gf_genes))
-
-    # Use the maximum size as a reference for scaling
-    max_set_size = max(all_set_sizes)
 
     # Function to create Venn diagram using plots
     def create_plot_venn(set1, set2, ax, set_labels=None):
@@ -2013,8 +1506,8 @@ def time_intersections(all_dict):
 
             # set_plot_defaults()
             # plt.tight_layout()
-            plt.savefig(f"./Private/time points/{direction}{time * 6 - 1}venn.png", dpi=300)
-            plt.savefig(f"./Private/time points/{direction}{time * 6 - 1}_venn.svg", dpi=300)
+            plt.savefig(f"./Private/{direction}{time * 6 - 1}_venn.png", dpi=300)
+            plt.savefig(f"./Private/{direction}{time * 6 - 1}_venn.svg", dpi=300)
             plt.show()
             plt.close()
 
@@ -2022,23 +1515,19 @@ def time_intersections(all_dict):
 
 
 if __name__ == "__main__":
-    get_meta_data("SPF")
-    get_meta_data("GF")
-    run_spf(to_cluster=True, plot=False, intersect=False)
-    run_gf(to_cluster=True, plot=False, intersect=False)
-    run_spf(to_cluster=False, plot=True, intersect=False)
-    run_gf(to_cluster=False, plot=True, intersect=False)
+    # run_spf(to_cluster=True, plot=True, intersect=False)
+    # run_gf(to_cluster=True, plot=True, intersect=False)
     # quit()
 
-    # unite_go_clusters(False)
+    unite_go_clusters(False)
     find_all_cycles()
     # categories_dict = detect_change()
     # # plot_all_data(categories_dict, True)
     # plot_heatmap(categories_dict, "total", False, False)
     categories_dict = detect_change_hour()
     save_dictionary(categories_dict, txt=True)
-    enrichment_analysis_tp(categories_dict)
-    plot_all_data(categories_dict, False)
+    # enrichment_analysis_tp(categories_dict)
+    # plot_all_data(categories_dict, False)
     plot_heatmap(categories_dict, "hour", False, False)
 
     clock_genes_phase()
