@@ -13,9 +13,7 @@ This repository provides complementary tools for analyzing microbiome data in co
 ├── all_figures_plot.py          # Aggregates and plots major figures
 ├── clusters_plot.py             # Generates plots for specific clusters
 ├── compores_results_analysis.py # Analyzes results from CompoRes (Compositional microbiome Response)
-├── microbiome_pca.py            # Performs PCoA on microbiome datasets
 ├── random_forests.py            # Runs Random Forest classifier
-├── selbal_prep_16s.py           # Prepares data
 ├── time_points.py               # Handles and analyzes temporal data
 ```
 
@@ -41,12 +39,10 @@ pip install -r requirements.txt
 
 You can run individual scripts based on your analysis needs:
 
+- `all_figures_plot.py`: Generate paper plots.
 - `ClusteringGO.py`: Cluster genes by GO term.
-- `microbiome_pca.py`: Reduce dimensionality of microbiome features using PCoA.
 - `random_forests.py`: Run classification using a Random Forest model.
-- `selbal_prep_16s.py`: Preprocessing.
-- `all_figures_plot.py`: Generate summary plots.
-- `clusters_plot.py`: Plot specific gene or sample clusters.
+- `clusters_plot.py`: Function for plotting specific gene or sample clusters.
 - `time_points.py`: Analyze gene expression data across time points.
 - `compores_results_analysis.py`: Perform statistical analysis of CompoRes output.
 
