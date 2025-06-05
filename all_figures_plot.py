@@ -2110,7 +2110,6 @@ def figure2():
     gsea = plot_categories(antibiotics, treatments, "\\diff_abx" + "GSEA", False, regular=False, gsea=True,
                            anchor=(0.5, -5.2))
     plot_correlation_gsea(gsea, our)
-    compare_significance_go(raw, meta, param="diff_abx" + run_type)
     clusters_compare_mix(antibiotics, treatments, "diff_abx" + run_type)
 
 
