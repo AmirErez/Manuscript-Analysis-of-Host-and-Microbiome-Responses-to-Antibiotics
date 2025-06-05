@@ -425,7 +425,7 @@ def multi_treat_forest(random=False):
 
 
 def get_ensmus_dict():
-    df = pd.read_csv("Data" + "transcriptome_2023-09-17-genes_norm_named.tsv", sep="\t")
+    df = pd.read_csv(os.path.join("Data", "transcriptome_2023-09-17-genes_norm_named.tsv"), sep="\t")
     return df.set_index('gene_id')['gene_name'].to_dict()
 
 
