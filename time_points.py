@@ -540,7 +540,7 @@ def plot_clock_genes(circadian_clock_genes, condition, data, exp_type, meta_data
     plt.xlabel('ZT')
     z_score_label = ", z-score by PBS" if z_score else ""
     plt.title(f"{exp_type.upper()} Clock genes log(1+X) expression{z_score_label}")
-    plt.savefig(os.path.join("Private", "analysis", exp_type, f'{exp_type} {'z-score' if z_score else ''} clock_genes.png'),
+    plt.savefig(os.path.join("Private", "analysis", exp_type, f"{exp_type} {'z-score' if z_score else ''} clock_genes.png"),
                 bbox_inches="tight")
     # plt.show()
     plt.close()

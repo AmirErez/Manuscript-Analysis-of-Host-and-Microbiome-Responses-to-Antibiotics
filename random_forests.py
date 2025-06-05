@@ -383,7 +383,7 @@ def background_analysis(background):
 
 
 def multi_abx_forest():
-    _, metadata, _, data = read_process_files(new=False)
+    metadata, data = read_process_files(new=False)
     data, metadata = transform_data(data, metadata, "RASflow",
                                     skip=True)  # note we don't do that due to 324 np.inf values caused by division by 0
 
@@ -405,7 +405,7 @@ def multi_abx_forest():
 
 
 def multi_treat_forest(random=False):
-    _, metadata, _, data = read_process_files(new=False)
+    metadata, data = read_process_files(new=False)
     data, metadata = transform_data(data, metadata, "RASflow", skip=True)
 
     metadata["group"] = metadata["Drug"] + "_" + metadata["Treatment"]
