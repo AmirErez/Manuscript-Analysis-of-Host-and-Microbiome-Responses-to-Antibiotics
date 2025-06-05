@@ -141,139 +141,6 @@ def get_ancestor(go_term):
     return last
 
 
-# def convert_to_ensembl(gene_to_go_mapping):
-#     import mygene
-#     mg = mygene.MyGeneInfo()
-#     all_genes = list(gene_to_go_mapping.keys())
-#
-#     # Query the mygene API to get Ensembl IDs for the genes
-#     gene_info = mg.querymany(all_genes, scopes='symbol,refseq,uniprot', fields='ensembl.gene', species='mouse',
-#                              returnall=True)
-#
-#     ensembl_gene_to_go_mapping = {}
-#
-#     for entry in gene_info['out']:
-#         gene_symbol = entry['query']
-#
-#         ensembl_data = entry.get('ensembl', {})
-#         if isinstance(ensembl_data, list):
-#             # If there are multiple Ensembl entries, take the first one
-#             ensembl_id = ensembl_data[0].get('gene')
-#         else:
-#             ensembl_id = ensembl_data.get('gene')
-#
-#         # If there's a valid Ensembl ID, add it to the new mapping
-#         if ensembl_id:
-#             ensembl_gene_to_go_mapping[ensembl_id] = gene_to_go_mapping[gene_symbol]
-#
-#     return ensembl_gene_to_go_mapping
-
-
-# def create_gene_id_dict():
-#     import wget
-#     import gzip
-#     import shutil
-#     # from goatools.obo_parser import GODag
-#     # 1. Download necessary files using wget
-#     # Download the Gene Ontology obo file
-#     go_obo_url = 'http://purl.obolibrary.org/obo/go/go-basic.obo'
-#     wget.download(go_obo_url, directory + 'go-basic.obo')
-#     # Download the gene association file for Mus musculus from EBI
-#     association_url_ebi = 'ftp://ftp.ebi.ac.uk/pub/databases/GO/goa/MOUSE/goa_mouse.gaf.gz'
-#     wget.download(association_url_ebi, directory + 'goa_mouse.gaf.gz')
-#     # 2. Decompress the goa_mouse.gaf.gz file
-#     with gzip.open(directory + 'goa_mouse.gaf.gz', 'rb') as f_in:
-#         with open(directory + 'goa_mouse.gaf', 'wb') as f_out:
-#             shutil.copyfileobj(f_in, f_out)
-#     # 3. Clean the goa_mouse.gaf file to skip header lines
-#     with open(directory + 'goa_mouse.gaf', 'r', encoding='utf-8') as f_in:
-#         with open(directory + 'cleaned_goa_mouse.gaf', 'w', encoding='utf-8') as f_out:
-#             for line in f_in:
-#                 if not line.startswith('!'):
-#                     f_out.write(line)
-#     # # 4. Load the Gene Ontology
-#     # obodag = GODag("go-basic.obo")
-#     # 5. Manually parse the cleaned_goa_mouse.gaf file
-#     gene_to_go_mapping = {}
-#     with open(directory + 'cleaned_goa_mouse.gaf', 'r', encoding='utf-8') as f:
-#         for line in f:
-#             columns = line.strip().split('\t')
-#             if len(columns) > 5:
-#                 gene_id = columns[1]
-#                 go_term = columns[4]
-#                 if gene_id not in gene_to_go_mapping:
-#                     gene_to_go_mapping[gene_id] = []
-#                 gene_to_go_mapping[gene_id].append(go_term)
-#     return gene_to_go_mapping
-
-
-# def gene_id_to_go():
-#     import json
-#     import os
-#
-#     directory = "./Private/gene to GO"
-#     # File path
-#     file_path = directory + 'ensembl_gene_to_go_mapping.json'
-#
-#     # Check if the file exists
-#     if os.path.exists(file_path):
-#         # Load the dictionary from the JSON file
-#         with open(file_path, 'r') as infile:
-#             ensembl_gene_to_go_mapping = json.load(infile)
-#     else:
-#         gene_to_go_mapping = create_gene_id_dict()
-#
-#         print("genes:", len(gene_to_go_mapping))
-#         ensembl_gene_to_go_mapping = convert_to_ensembl(gene_to_go_mapping)
-#
-#         # # Print the first few items in the dictionary for verification
-#         # for gene_id, gos in list(ensembl_gene_to_go_mapping.items())[:5]:
-#         #     print(f"{gene_id} is associated with GO terms {', '.join(gos)}")
-#         print("ensmble:", len(ensembl_gene_to_go_mapping))
-#         # Create the mapping
-#         ensembl_gene_to_go_mapping = convert_to_ensembl(gene_to_go_mapping)
-#
-#         # Save the dictionary to a JSON file
-#         with open(file_path, 'w') as outfile:
-#             json.dump(ensembl_gene_to_go_mapping, outfile, indent=4)
-#     return ensembl_gene_to_go_mapping
-
-
-# def convert_to_go_to_ensembl(ensembl_gene_to_go_mapping):
-#     go_to_ensembl_gene_mapping = {}
-#
-#     for ensembl_id, go_terms in ensembl_gene_to_go_mapping.items():
-#         for go_term in go_terms:
-#             if go_term not in go_to_ensembl_gene_mapping:
-#                 go_to_ensembl_gene_mapping[go_term] = []
-#             go_to_ensembl_gene_mapping[go_term].append(ensembl_id)
-#
-#     return go_to_ensembl_gene_mapping
-
-
-# def go_to_gene_id():
-#     import json
-#     import os
-#
-#     directory = "./Private/gene to GO"
-#     # File path for GO to Ensembl mapping
-#     file_path = directory + 'go_to_ensembl_gene_mapping.json'
-#
-#     # Check if the file exists
-#     if os.path.exists(file_path):
-#         # Load the dictionary from the JSON file
-#         with open(file_path, 'r') as infile:
-#             go_to_ensembl_gene_mapping = json.load(infile)
-#     else:
-#         ensembl_gene_to_go_mapping = gene_id_to_go()
-#         go_to_ensembl_gene_mapping = convert_to_go_to_ensembl(ensembl_gene_to_go_mapping)
-#
-#         # Save the dictionary to a JSON file
-#         with open(file_path, 'w') as outfile:
-#             json.dump(go_to_ensembl_gene_mapping, outfile, indent=4)
-#
-#     return go_to_ensembl_gene_mapping
-
 
 def get_go(download_anyway=False):
     # go_obo_url = 'http://current.geneontology.org/ontology/go-basic.obo'
@@ -877,8 +744,8 @@ def plot_cluster(df, cluster_genes, genes_enhanced, genes_suppressed, title, id_
 
     plt.tight_layout()
 
-    plt.savefig(f"./Private/clusters/significant_split/{title.replace(":", "_")} heatmap.png", bbox_inches='tight')
-    plt.savefig(f"./Private/clusters/significant_split/{title.replace(":", "_")} heatmap.svg", bbox_inches='tight')
+    plt.savefig(f"./Private/clusters/significant_split/{title.replace(':', '_')} heatmap.png", bbox_inches='tight')
+    plt.savefig(f"./Private/clusters/significant_split/{title.replace(':', '_')} heatmap.svg", bbox_inches='tight')
     # plt.show()
     plt.close()
 
