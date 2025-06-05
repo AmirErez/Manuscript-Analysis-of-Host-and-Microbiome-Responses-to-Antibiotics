@@ -554,7 +554,7 @@ def plot_composition(data, loc, thresh, colors, level, labels, qiime=True):
     gray_handle = mpatches.Patch(color='gray', label='other')
     handles.append(gray_handle)
 
-    plt.legend(handles, labels, loc='center left', bbox_to_anchor=(1, 4), fontsize=30, reverse=True)
+    plt.legend(handles[::-1], labels[::-1], loc='center left', bbox_to_anchor=(1, 4), fontsize=30)
     # plt.legend(labels, loc='center left', bbox_to_anchor=(1, 4), fontsize=30, reverse=True)
 
     # plt.subplot(rows, cols, 6).legend(labels, loc='center right', bbox_to_anchor=(3, 0), fontsize=20)
