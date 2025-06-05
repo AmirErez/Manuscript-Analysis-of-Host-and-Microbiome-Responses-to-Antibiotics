@@ -2069,100 +2069,101 @@ def plot_ip_po_distribution(log=True, threshold=0.05):
 
 
 if __name__ == "__main__":
-    # clock_genes = ["Nfil3", "Map1lc3a", "Dbp", "Ciart", "Atg9a", "Atg13", "Arntl"]
-    part_circadian_clock_genes = ["nfil3", "ciart", "dbp", "per3", "arntl"]
-    checking_genes = ["Isg15", "Oasl2", "Zbp1"]
-    part_circadian_clock_genes = ["per1", "per2", "per3", "cry1", "cry2",
-                                  "arntl", "nfil3", "nr1d1", "dbp", "clock",
-                                  "ciart"]  # "bmal1" is arntl. "chrono" is "ciart"?
-    autophagy_genes = ['Atg10', 'Atg101', 'Atg12', 'Atg13', 'Atg14', 'Atg16l1', 'Atg16l2', 'Atg2a', 'Atg2b',
-                       'Atg3', 'Atg4a', 'Atg4b', 'Atg4c', 'Atg4d', 'Atg5', 'Atg7', 'Atg9a', 'Atg9b',
-                       'Map1lc3a', 'Map1lc3b', 'Sqstm1', 'Gabarap', 'Gabarapl1', 'Gabarapl2',
-                       'Becn1', 'Ulk1', 'Ulk2', 'Ulk3', 'Ulk4', 'Wipi2']
-    viral_genes = akiko_check()
-    part_circadian_clock_genes = ["per3"]
-    circadian_clock_genes = [gene.capitalize() for gene in checking_genes]
-    circadian_clock_genes = [gene.capitalize() for gene in viral_genes]
-    circadian_clock_genes = [gene.capitalize() for gene in part_circadian_clock_genes]
-    circadian_clock_genes = ["atg9a", "atg13", "map1lc3a", "per1", "per2", "cry1", "cry2",
-                             "arntl", "nfil3", "nr1d1", "dbp", "clock",
-                             "ciart"]  # "bmal1" is arntl. "chrono" is "ciart"?
-    # capitalize circadian_clock_genes
-    circadian_clock_genes = [gene.capitalize() for gene in circadian_clock_genes]
-    part_circadian_clock_genes = [gene.capitalize() for gene in part_circadian_clock_genes]
-    autophagy_genes = [gene.capitalize() for gene in autophagy_genes]
-    ensmus_dict = get_ensmus_dict()
-    # reverse this dictionary
-    names_dict = {v: k for k, v in ensmus_dict.items()}
-    ensmus_clock_genes = list(names_dict[gene] for gene in part_circadian_clock_genes if gene in names_dict)
-    ensmus_autophagy_genes = list(names_dict[gene] for gene in autophagy_genes if gene in names_dict)
-    ensmus_clock_genes = list(names_dict[gene] for gene in circadian_clock_genes if gene in names_dict)
-    groups = {
-        "autophagy": ensmus_clock_genes[:3],
-        "core_clock": ensmus_clock_genes[3:7],
-        "other_clock": ensmus_clock_genes[7:],
-    }
-    missing = set(circadian_clock_genes) - set([ensmus_dict[gene] for gene in ensmus_clock_genes])
-    if missing:
-        print(f"{missing} are missing from the original list")
-    significant_clock_genes = significance(ensmus_clock_genes)
-    prepare_genes_to_compores(threshold=0.05, by_genes=viral_genes, folder="viral")
-    prepare_genes_to_compores(threshold=0.05, by_genes=ensmus_clock_genes, folder="auroc")
-    prepare_genes_to_compores(threshold=0.05, by_genes=ensmus_clock_genes, folder="clock")
-    prepare_genes_to_compores(threshold=0.05, by_genes=ensmus_autophagy_genes, folder="autophagy_all")  # rerun 0.05
-    for group in groups:
-        box_plot_compores_comparison_clock(groups[group], "clock", group, significant_clock_genes, ensmus_dict)
-    box_plot_compores_comparison_clock(ensmus_clock_genes, "clock", circadian_clock_genes, significant_clock_genes)
-
-    viral_genes = akiko_check()
-    # significant_genes = neo_significance(threshold=0.01)
-    # significant_viral(viral_genes, significant_genes)
-    compare_compores_all_antibiotics(viral_genes, "viral", threshold=True)
-    compare_compores_all_antibiotics(viral_genes, "viral")
-    neo_compores(viral_genes)
-    # # NOTE: 525 are available out of original 586 viral genes
-    # prepare_genes_to_compores(threshold=0.05, by_genes=list(viral_genes), folder="viral")  # rerun 0.05
-    box_plot_compores_comparison_specific(viral_genes, "viral")
-    compare_correlation_fmt(vs_all=True, threshold=0.01)
-    compare_correlation_gf("Van", "IP", threshold=0.01)
-    # plot_ip_po_distribution(threshold=0.05)
-    plot_ip_po_distribution(threshold=0.01, log=False)
-    quit()
-
-    # # prepare_clock_genes_to_compores(clock_genes)
-    # plot_clock_genes_compores()
-    # quit()
-    prepare_genes_to_compores(threshold=0.05, folder="zheniya")
-    # # show_case_correlated_genes()  # for all we ran 0.01
-    # compare_correlation_all()
-    # box_plot_compores_comparison()
+    pass
+    # # clock_genes = ["Nfil3", "Map1lc3a", "Dbp", "Ciart", "Atg9a", "Atg13", "Arntl"]
+    # part_circadian_clock_genes = ["nfil3", "ciart", "dbp", "per3", "arntl"]
+    # checking_genes = ["Isg15", "Oasl2", "Zbp1"]
+    # part_circadian_clock_genes = ["per1", "per2", "per3", "cry1", "cry2",
+    #                               "arntl", "nfil3", "nr1d1", "dbp", "clock",
+    #                               "ciart"]  # "bmal1" is arntl. "chrono" is "ciart"?
+    # autophagy_genes = ['Atg10', 'Atg101', 'Atg12', 'Atg13', 'Atg14', 'Atg16l1', 'Atg16l2', 'Atg2a', 'Atg2b',
+    #                    'Atg3', 'Atg4a', 'Atg4b', 'Atg4c', 'Atg4d', 'Atg5', 'Atg7', 'Atg9a', 'Atg9b',
+    #                    'Map1lc3a', 'Map1lc3b', 'Sqstm1', 'Gabarap', 'Gabarapl1', 'Gabarapl2',
+    #                    'Becn1', 'Ulk1', 'Ulk2', 'Ulk3', 'Ulk4', 'Wipi2']
+    # viral_genes = akiko_check()
+    # part_circadian_clock_genes = ["per3"]
+    # circadian_clock_genes = [gene.capitalize() for gene in checking_genes]
+    # circadian_clock_genes = [gene.capitalize() for gene in viral_genes]
+    # circadian_clock_genes = [gene.capitalize() for gene in part_circadian_clock_genes]
+    # circadian_clock_genes = ["atg9a", "atg13", "map1lc3a", "per1", "per2", "cry1", "cry2",
+    #                          "arntl", "nfil3", "nr1d1", "dbp", "clock",
+    #                          "ciart"]  # "bmal1" is arntl. "chrono" is "ciart"?
+    # # capitalize circadian_clock_genes
+    # circadian_clock_genes = [gene.capitalize() for gene in circadian_clock_genes]
+    # part_circadian_clock_genes = [gene.capitalize() for gene in part_circadian_clock_genes]
+    # autophagy_genes = [gene.capitalize() for gene in autophagy_genes]
+    # ensmus_dict = get_ensmus_dict()
+    # # reverse this dictionary
+    # names_dict = {v: k for k, v in ensmus_dict.items()}
+    # ensmus_clock_genes = list(names_dict[gene] for gene in part_circadian_clock_genes if gene in names_dict)
+    # ensmus_autophagy_genes = list(names_dict[gene] for gene in autophagy_genes if gene in names_dict)
+    # ensmus_clock_genes = list(names_dict[gene] for gene in circadian_clock_genes if gene in names_dict)
+    # groups = {
+    #     "autophagy": ensmus_clock_genes[:3],
+    #     "core_clock": ensmus_clock_genes[3:7],
+    #     "other_clock": ensmus_clock_genes[7:],
+    # }
+    # missing = set(circadian_clock_genes) - set([ensmus_dict[gene] for gene in ensmus_clock_genes])
+    # if missing:
+    #     print(f"{missing} are missing from the original list")
+    # significant_clock_genes = significance(ensmus_clock_genes)
+    # prepare_genes_to_compores(threshold=0.05, by_genes=viral_genes, folder="viral")
+    # prepare_genes_to_compores(threshold=0.05, by_genes=ensmus_clock_genes, folder="auroc")
+    # prepare_genes_to_compores(threshold=0.05, by_genes=ensmus_clock_genes, folder="clock")
+    # prepare_genes_to_compores(threshold=0.05, by_genes=ensmus_autophagy_genes, folder="autophagy_all")  # rerun 0.05
+    # for group in groups:
+    #     box_plot_compores_comparison_clock(groups[group], "clock", group, significant_clock_genes, ensmus_dict)
+    # box_plot_compores_comparison_clock(ensmus_clock_genes, "clock", circadian_clock_genes, significant_clock_genes)
+    #
+    # viral_genes = akiko_check()
+    # # significant_genes = neo_significance(threshold=0.01)
+    # # significant_viral(viral_genes, significant_genes)
+    # compare_compores_all_antibiotics(viral_genes, "viral", threshold=True)
+    # compare_compores_all_antibiotics(viral_genes, "viral")
+    # neo_compores(viral_genes)
+    # # # NOTE: 525 are available out of original 586 viral genes
+    # # prepare_genes_to_compores(threshold=0.05, by_genes=list(viral_genes), folder="viral")  # rerun 0.05
+    # box_plot_compores_comparison_specific(viral_genes, "viral")
     # compare_correlation_fmt(vs_all=True, threshold=0.01)
-    quit()
-    ensmus_to_gene = get_ensmus_dict()
-    all_significant, gf, spf, correlated_intersection, uncorrelated_intersection = compare_correlation_gf("Van", "IP",
-                                                                                                          threshold=0.01)
+    # compare_correlation_gf("Van", "IP", threshold=0.01)
+    # # plot_ip_po_distribution(threshold=0.05)
+    # plot_ip_po_distribution(threshold=0.01, log=False)
     # quit()
-    spf.index = [ensmus_to_gene[gene] if gene in ensmus_to_gene else gene for gene in spf.index]
-    spf = spf.groupby(spf.index).sum()
-    # 1) All genes (log2 fc like you did), comparing the SPF and GF experiments.
-    log2fc_plot(gf.index.intersection(spf.index), gf, spf, "all_genes")
-    # 2) All genes that are significant (p-value) in both SPF and GF, regardless of CompoRes
-    log2fc_plot(all_significant, gf, spf, "all_significant_genes (no CompoRes)")
-    # 3) Genes that are significant in SPF and are uncorrelated with microbiota using CompoRes, vs GF significant genes
-    log2fc_plot(correlated_intersection, gf, spf, "GF_significant_SPF_microbiome_correlated")
-    # 4) Genes that are significant in SPF and are correlated with microbiota using CompoRes, vs GF significant genes
-    log2fc_plot(uncorrelated_intersection, gf, spf, "GF_significant_SPF_microbiome_uncorrelated")
-    # 5) Downsample (1) so that it’s the same size like (3) and like (4), to see how the p-values are after downsampling
-    random_all = np.random.choice(gf.index.intersection(spf.index), len(correlated_intersection), replace=False)
-    log2fc_plot(random_all, gf, spf, f"all_genes (down sampled to size of correlated {len(correlated_intersection)})")
-    random_all = np.random.choice(gf.index.intersection(spf.index), len(uncorrelated_intersection), replace=False)
-    log2fc_plot(random_all, gf, spf,
-                f"all_genes (down sampled to size of uncorrelated {len(uncorrelated_intersection)})")
-    # 5) 6) Downsample (2) so that it’s the same size like (3) and like (4), to see how the p-values are after downsampling
-    random_all = np.random.choice(all_significant, len(correlated_intersection), replace=False)
-    log2fc_plot(random_all, gf, spf,
-                f"all_significant_genes (down sampled to size of correlated {len(correlated_intersection)})")
-    random_all = np.random.choice(all_significant, len(uncorrelated_intersection), replace=False)
-    log2fc_plot(random_all, gf, spf,
-                f"all_significant_genes (down sampled to size of uncorrelated {len(uncorrelated_intersection)})")
-    quit()
+    #
+    # # # prepare_clock_genes_to_compores(clock_genes)
+    # # plot_clock_genes_compores()
+    # # quit()
+    # prepare_genes_to_compores(threshold=0.05, folder="zheniya")
+    # # # show_case_correlated_genes()  # for all we ran 0.01
+    # # compare_correlation_all()
+    # # box_plot_compores_comparison()
+    # # compare_correlation_fmt(vs_all=True, threshold=0.01)
+    # quit()
+    # ensmus_to_gene = get_ensmus_dict()
+    # all_significant, gf, spf, correlated_intersection, uncorrelated_intersection = compare_correlation_gf("Van", "IP",
+    #                                                                                                       threshold=0.01)
+    # # quit()
+    # spf.index = [ensmus_to_gene[gene] if gene in ensmus_to_gene else gene for gene in spf.index]
+    # spf = spf.groupby(spf.index).sum()
+    # # 1) All genes (log2 fc like you did), comparing the SPF and GF experiments.
+    # log2fc_plot(gf.index.intersection(spf.index), gf, spf, "all_genes")
+    # # 2) All genes that are significant (p-value) in both SPF and GF, regardless of CompoRes
+    # log2fc_plot(all_significant, gf, spf, "all_significant_genes (no CompoRes)")
+    # # 3) Genes that are significant in SPF and are uncorrelated with microbiota using CompoRes, vs GF significant genes
+    # log2fc_plot(correlated_intersection, gf, spf, "GF_significant_SPF_microbiome_correlated")
+    # # 4) Genes that are significant in SPF and are correlated with microbiota using CompoRes, vs GF significant genes
+    # log2fc_plot(uncorrelated_intersection, gf, spf, "GF_significant_SPF_microbiome_uncorrelated")
+    # # 5) Downsample (1) so that it’s the same size like (3) and like (4), to see how the p-values are after downsampling
+    # random_all = np.random.choice(gf.index.intersection(spf.index), len(correlated_intersection), replace=False)
+    # log2fc_plot(random_all, gf, spf, f"all_genes (down sampled to size of correlated {len(correlated_intersection)})")
+    # random_all = np.random.choice(gf.index.intersection(spf.index), len(uncorrelated_intersection), replace=False)
+    # log2fc_plot(random_all, gf, spf,
+    #             f"all_genes (down sampled to size of uncorrelated {len(uncorrelated_intersection)})")
+    # # 5) 6) Downsample (2) so that it’s the same size like (3) and like (4), to see how the p-values are after downsampling
+    # random_all = np.random.choice(all_significant, len(correlated_intersection), replace=False)
+    # log2fc_plot(random_all, gf, spf,
+    #             f"all_significant_genes (down sampled to size of correlated {len(correlated_intersection)})")
+    # random_all = np.random.choice(all_significant, len(uncorrelated_intersection), replace=False)
+    # log2fc_plot(random_all, gf, spf,
+    #             f"all_significant_genes (down sampled to size of uncorrelated {len(uncorrelated_intersection)})")
+    # quit()

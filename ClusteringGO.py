@@ -1770,35 +1770,35 @@ def set_plot_defaults():
     # sns.set_theme(rc=plt.rcParams)
 
 
-if __name__ == "__main__":
-    import sys
-
-    run_type = sys.argv[1]
-
-    genome, metadata, partek, transcriptome = read_process_files(new=False)
-
-    # # save metadata and transcriptome as csv files
-    # metadata.to_csv("./Private/metadata.csv", index=False)
-    # transcriptome.to_csv("./Private/transcriptome.csv")
-
-    genes_dict = get_ensmus_dict()
-    genes = [genes_dict[gene] for gene in transcriptome.index]
-    to_save = transcriptome.copy()
-    to_save = to_save.reset_index()
-    to_save.index = genes
-    to_save.to_csv(f"./Private/data{run_type}.csv")
-    data = transcriptome
-    data, metadata = transform_data(data, metadata, run_type, skip=True)
-    genes = [genes_dict[gene] for gene in data.index]
-    to_save = data.copy()
-    to_save.reset_index()
-    to_save.index = genes
-    # save the data
-    to_save.to_csv(f"./Private/transformed_data{run_type}.csv")
-    metadata.to_csv(f"./Private/transformed_metadata{run_type}.csv")
-    tree, tree_size = build_tree(True)
-    # make any value smaller than log10(5) to be 0
-    # data[data < np.log10(1)] = 0
-
-    corr = calculate_correlation(tree, data, metadata, tree_size, antibiotics, treatments, "H2-Ab1",
-                                 f"diff_abx{run_type}", 'Treatment')
+# if __name__ == "__main__":
+    # import sys
+    #
+    # run_type = sys.argv[1]
+    #
+    # genome, metadata, partek, transcriptome = read_process_files(new=False)
+    #
+    # # # save metadata and transcriptome as csv files
+    # # metadata.to_csv("./Private/metadata.csv", index=False)
+    # # transcriptome.to_csv("./Private/transcriptome.csv")
+    #
+    # genes_dict = get_ensmus_dict()
+    # genes = [genes_dict[gene] for gene in transcriptome.index]
+    # to_save = transcriptome.copy()
+    # to_save = to_save.reset_index()
+    # to_save.index = genes
+    # to_save.to_csv(f"./Private/data{run_type}.csv")
+    # data = transcriptome
+    # data, metadata = transform_data(data, metadata, run_type, skip=True)
+    # genes = [genes_dict[gene] for gene in data.index]
+    # to_save = data.copy()
+    # to_save.reset_index()
+    # to_save.index = genes
+    # # save the data
+    # to_save.to_csv(f"./Private/transformed_data{run_type}.csv")
+    # metadata.to_csv(f"./Private/transformed_metadata{run_type}.csv")
+    # tree, tree_size = build_tree(True)
+    # # make any value smaller than log10(5) to be 0
+    # # data[data < np.log10(1)] = 0
+    #
+    # corr = calculate_correlation(tree, data, metadata, tree_size, antibiotics, treatments, "H2-Ab1",
+    #                              f"diff_abx{run_type}", 'Treatment')

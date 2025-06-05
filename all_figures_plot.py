@@ -10,6 +10,9 @@ import wget
 from goatools import obo_parser
 from matplotlib.patches import Ellipse
 from scipy.stats import linregress
+from scipy.stats.mstats import gmean
+
+from clusters_plot import merge_results, clusters_compare_mix
 
 treatments = ['IP', 'IV', 'PO']
 antibiotics = ['Amp', 'Met', 'Neo', 'Van', 'Mix']
@@ -2117,6 +2120,8 @@ def figure2():
                            anchor=(0.5, -5.2))
     plot_correlation_gsea(gsea, our)
     compare_significance_go(raw, meta, param="diff_abx" + run_type)
+    clusters_compare_mix(antibiotics, treatments, "diff_abx" + run_type)
+
 
 
 def plot_auroc_vs_noise(result: dict, exp_name, response_tag):
@@ -2250,6 +2255,8 @@ def figure_s():
 
 
 if __name__ == '__main__':
+    clusters_compare_mix(antibiotics, treatments, "diff_abxRASflow")
+
     # figure1()
     # figure2()
-    figure_s()
+    # figure_s()

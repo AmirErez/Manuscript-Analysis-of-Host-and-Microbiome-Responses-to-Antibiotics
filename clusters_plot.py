@@ -7,8 +7,7 @@ import seaborn as sns
 from goatools import obo_parser
 from scipy.stats import linregress
 
-from ClusteringGO import (antibiotics, treatments, get_ancestor, get_go, transform_data,
-                          private, path, read_process_files, set_plot_defaults)
+from ClusteringGO import (antibiotics, treatments, get_ancestor, get_go, private, path, set_plot_defaults)
 
 
 def z_score_by_pbs(data, abx, pbs):
@@ -550,68 +549,6 @@ def get_unique_random_genes(index, data, times=100_000):
     return np.mean(mix_unique), np.std(mix_unique)
 
 
-def ven_diagrams_plot(genes, param):
-    from matplotlib_venn import venn3
-
-    intersection_list = ""
-    mix_list = ""
-    # plot 3 van5 diagrams: one for each treatment
-    for treat in treatments:
-        # # create a dictionary of the number of significant genes for each antibiotic
-        data = {abx: genes[abx][treat] for abx in antibiotics}
-        # print the intersection of the significant genes
-        sep_list = '\n'.join(set.intersection(*data.values()))
-        temp = f"intersection of significant genes for {treat}: {len(set.intersection(*data.values()))}\n" \
-               f"{sep_list}\n"
-        print(temp)
-        intersection_list += temp
-
-        # print the number of mutual significant genes for each pair of antibiotic+mix and have no overlap with any antibiotic
-        for abx in antibiotics:
-            if abx == "Mix":
-                continue
-            intersection_genes = set.intersection(data[abx], data['Mix']) - set.union(
-                *[data[abx2] for abx2 in antibiotics if ((abx2 != abx) and (abx2 != 'Mix'))])
-            temp = (f"intersection of significant genes for {treat} {abx} and Mix (only): "
-                    f"{len(intersection_genes)}\n")
-            print(temp)
-            mix_list += temp
-            # save intersection_genes to csv
-            with open(private + f"analysis/{param}/intersection_genes_{treat}_{abx}_Mix.csv", 'w') as file:
-                file.write(",".join(intersection_genes))
-        unique_genes = set(data['Mix']) - set.union(*[data[abx2] for abx2 in antibiotics if abx2 != 'Mix'])
-        unique_random = get_unique_random_genes(raw.index, data)
-        mix_list += f"Mix unique terms for {treat}: {len(unique_genes)}, {100 * len(unique_genes) / len(data['Mix'])}%\n"
-        mix_list += (fr"vs. {unique_random[0]} $\pm$ {unique_random[1]} unique size for random groups, meaning "
-                     f"{(len(unique_genes) - unique_random[0]) / unique_random[1]} SDs\n")
-        mix_list += f"{unique_genes}\n"
-        with open(private + f"analysis/{param}/Mix_unique_genes_{treat}.csv", 'w') as file:
-            file.write(",".join(unique_genes))
-        # # create a venn diagram
-        # # plot_ven5(data, treat, param)
-        # venn(data)
-        # plt.title(f"Venn Diagram for {treat}")
-        # plt.savefig(private + f"analysis/{param}/Venn5{treat}.png", bbox_inches='tight')
-        # plt.show()
-        # venn3 with Amp, Mix and each abx (with proportional areas)
-        strings_to_remove = ['Amp', 'Mix']
-        mask = np.isin(antibiotics, strings_to_remove, invert=True)
-        antibiotic_partial = antibiotics[mask]
-        for abx in antibiotic_partial:
-            curr = [genes[anti][treat] for anti in strings_to_remove + [abx]]
-            venn3(curr, set_labels=strings_to_remove + [abx])
-            plt.title(f"Venn Diagram for {treat}; {', '.join(strings_to_remove + [abx])}")
-            plt.savefig(private + f"analysis/{param}/ven/Venn3_{treat}_{abx}.png", bbox_inches='tight')
-            # plt.show()
-            plt.close()
-            random_intersection(curr, strings_to_remove + [abx], raw.index, param, treat, abx)
-    # save the intersection list
-    with open(private + f'analysis/{param}/intersection_list.txt', 'w') as file:
-        file.write(intersection_list)
-    with open(private + f'analysis/{param}/mix_list.txt', 'w') as file:
-        file.write(mix_list)
-
-
 def plot_significant_genes_number(meta, raw, antibiotics, treatments, param, condition="Treatment"):
     import pickle
     # import matplotlib
@@ -680,8 +617,6 @@ def plot_significant_genes_number(meta, raw, antibiotics, treatments, param, con
         df = pd.read_csv(os.path.join(private, "analysis", param, "statistics_genes.csv"))
         with open(os.path.join(private, f'analysis', param, 'statistics_genes.pkl'), 'rb') as file:
             genes = pickle.load(file)
-
-    # ven_diagrams_plot(genes, param)
 
     # rename the columns and rows
     df = df.rename_axis("Treatment", axis=1)
@@ -839,25 +774,13 @@ def clusters_compare_mix(antibiotics, treatments, param):
                                f"-log(p-value) of enrichment of significant\n genes clusters in mix_{treat}",
                                f"go_p_val_{treat}{'_to_mix' if to_mix else ''}", to_mix, title, jitter=0,
                                log=True, minus=True)
-            # compare_mix_single(mix, no_mix, param, treat, "median t-test p-value",
-            #                    f"treat-test -log10(p-value) of clusters in abx_{treat}",
-            #                    f"treat-test -log10(p-value) of clusters in mix_{treat}",
-            #                    f"p-value_{treat}{'_to_mix' if to_mix else ''}", to_mix, title, log=True, jitter=0)
             compare_mix_single(mix, no_mix, param, treat, "relative size",
                                f"relative size of clusters in abx_{treat}", f"relative size of clusters in mix_{treat}",
                                f"relative_size_{treat}{'_to_mix' if to_mix else ''}", to_mix, title)
-            # compare_mix_single(mix, no_mix, param, treat, "fold change",
-            #                    f"log10(fold change) in abx_{treat}", f"log10(fold change) of clusters in mix_{treat}",
-            #                    f"fold_change_{treat}{'_to_mix' if to_mix else ''}", to_mix, title, log=True,
-            #                    minus=False)
-            # compare_mix_single(mix, no_mix, param, treat, "fold change",
-            #                    f"fold change in abx_{treat}", f"-log10(fold change) of clusters in mix_{treat}",
-            #                    f"fold_change_{treat}{'_to_mix' if to_mix else ''}_no_log", to_mix, title)
             compare_mix_single(mix, no_mix, param, treat, "mean variance between samples",
                                f"mean variance between samples in abx_{treat}",
                                f"mean variance between samples of clusters in mix_{treat}",
                                f"variance_{treat}{'_to_mix' if to_mix else ''}", to_mix, title)
-    # return compare_mix
 
 
 def compare_mix_single(mix, no_mix, param, treat, col, xlabel, ylabel, title, to_mix, by, log=False, minus=True,
@@ -908,16 +831,7 @@ def compare_mix_single(mix, no_mix, param, treat, col, xlabel, ylabel, title, to
         df = df_filtered
     # sns.kdeplot(data=df, x='Selected', y='Compare Mix', cmap="YlGnBu", shade=True, cbar=True)
     plot_kde(x=df['Selected'], y=df['Compare Mix'], shape=df['Shape'], jitter=jitter, legend=opposite)
-    # Add the y = x line
-    # min_val = min(df['Selected'].min(), df['Compare Mix'].min())
-    # max_val = max(df['Selected'].max(), df['Compare Mix'].max())
-    # y_limits = {
-    #     "correlation": (0, 1.1),
-    #     "median t-test p-value": (-0.1, 2.5),
-    #     "relative size": (0.1, 1.1),
-    #     "fold change": (-2, 3),
-    #     "mean variance between samples": (-0.1, 3),
-    # }
+
     x_limits = {
         "go": (-0.1, 3),
         "p-value correlation": (-0.1, 1.1),
@@ -947,9 +861,11 @@ def compare_mix_single(mix, no_mix, param, treat, col, xlabel, ylabel, title, to
     plt.xlabel(xlabel)
     plt.ylabel(ylabel)
     plt.title(f"Comparison of clusters in abx_{treat} and {mix}_{treat},\n{by}")
-    # plt.tight_layout(rect=[0, 0.03, 1, 0.95])
-    # plt.axis('square')
+
     plt.tight_layout()
+    # if ./Private/met_comp does not exist, create it
+    if not os.path.exists("./Private/met_comp"):
+        os.makedirs("./Private/met_comp")
     plt.savefig(f"./Private/met_comp/{title}.png")
     plt.savefig(f"./Private/met_comp/{title}.svg")
     # plt.show()
@@ -958,8 +874,8 @@ def compare_mix_single(mix, no_mix, param, treat, col, xlabel, ylabel, title, to
 
 def get_selected_df_plot(abx, mix, param, treat):
     # read the clusters data for abx_treat and mix_treat
-    df = pd.read_csv(path + f"\\{param}\\top_correlated_GO_terms_{abx}_{treat}.tsv", sep="\t")
-    df_mix = pd.read_csv(path + f"\\{param}\\top_correlated_GO_terms_{mix}_{treat}.tsv", sep="\t")
+    df = pd.read_csv(os.path.join("data", "clusters_properties", f"top_correlated_GO_terms_{abx}_{treat}.tsv"), sep="\t")
+    df_mix = pd.read_csv(os.path.join("data", "clusters_properties", f"top_correlated_GO_terms_{mix}_{treat}.tsv"), sep="\t")
     # get the selected clusters for abx_treat
     # selected = df[(df['treat-test p-value'] <= 0.05) & (df['size'] >= 2) & (
     #         df['p-value distance'] <= 0.05)]
@@ -975,14 +891,12 @@ def get_selected_df_plot(abx, mix, param, treat):
 
 def get_selected_df_plot_mix(abx, mix, param, treat):
     # read the clusters data for abx_treat and mix_treat
-    df_other = pd.read_csv(path + f"\\{param}\\top_correlated_GO_terms_{abx}_{treat}.tsv", sep="\t")
-    df = pd.read_csv(path + f"\\{param}\\top_correlated_GO_terms_{mix}_{treat}.tsv", sep="\t")
+    df_other = pd.read_csv(os.path.join("data", "clusters_properties", f"top_correlated_GO_terms_{abx}_{treat}.tsv"),
+                           sep="\t")
+    df = pd.read_csv(os.path.join("data", "clusters_properties", f"top_correlated_GO_terms_{mix}_{treat}.tsv"),
+                     sep="\t")
     # get the selected clusters for abx_treat
-    # selected = df[(df['treat-test p-value'] <= 0.05) & (df['size'] >= 2) & (
-    #         df['p-value distance'] <= 0.05)]
     selected = df[(df['fdr correlation'] < 0.05)]
-
-    # df['better than parent'] is not False) & (df['better than random'] is not False)]
     # get the selected clusters for mix_treat
     compare_other = df_other[df_other["GO term"].isin(selected["GO term"])]
     # keep in selected only the clusters that are in compare_mix
@@ -1386,13 +1300,12 @@ def plot_correlation_gsea(gsea, our):
     plt.show()
 
 
-def merge_results():
+def merge_results(path):
     for treat in treatments:
         for j, abx in enumerate(antibiotics):
             # abx_data = meta_data[(meta_data['Drug'] == title) & (meta_data['Treatment'] == treat)]
             # pbs_data = meta_data[(meta_data['Drug'] == 'PBS') & (meta_data['Treatment'] == treat)]
-            selected = pd.read_csv(os.path.join(private, "clusters_properties", "diff_abxRASflow",
-                                                f"top_correlated_GO_terms_{abx}_{treat}.tsv"), sep="\t")
+            selected = pd.read_csv(path, sep="\t")
             gsea_selected = pd.DataFrame()
             for folder in os.listdir(os.path.join(private, "gsea")):
                 if folder.startswith(f"{abx.capitalize()}{treat.upper()}"):
@@ -1418,25 +1331,24 @@ def merge_results():
                 os.path.join(private, "clusters_properties", "diff_abxRASflow", f"clean_merged_{abx}_{treat}.tsv"),
                 sep="\t", index=False)
 
-
-if __name__ == "__main__":
-    run_type = "RASflow"
-    all_data = pd.read_csv(os.path.join(path, f"diff_abx{run_type}\\top_correlated_GO_terms.tsv"), sep="\t")
-    genome, meta, partek, transcriptome = read_process_files(new=False)
-    raw = transcriptome
-    raw, metadata = transform_data(raw, meta, run_type, skip=True)
-    # save raw to csv
-    raw.to_csv(private + f"/analysis/Diff_abx{run_type}/normalized_multiabx.csv")
-
-    plot_selected_clusters(raw, meta, "diff_abx" + run_type)
-    plot_significant_genes_number(meta, raw, antibiotics, treatments, "diff_abx" + run_type)
-
-    compare_significance_go(param="diff_abx" + run_type)
-    clusters_compare_mix(antibiotics, treatments, "diff_abx" + run_type)
-
-    merge_results()
-    # save_median_all_conditions(meta, raw, antibiotics, treatments, "Treatment", "diff_abx" + run_type)
-    our = plot_categories(antibiotics, treatments, "\\diff_abx" + run_type, False, regular=False)
-    gsea = plot_categories(antibiotics, treatments, "\\diff_abx" + "GSEA", False, regular=False, gsea=True,
-                           anchor=(0.5, -5.2))
-    plot_correlation_gsea(gsea, our)
+# if __name__ == "__main__":
+#     run_type = "RASflow"
+#     all_data = pd.read_csv(os.path.join(path, f"diff_abx{run_type}\\top_correlated_GO_terms.tsv"), sep="\t")
+#     genome, meta, partek, transcriptome = read_process_files(new=False)
+#     raw = transcriptome
+#     raw, metadata = transform_data(raw, meta, run_type, skip=True)
+#     # save raw to csv
+#     raw.to_csv(private + f"/analysis/Diff_abx{run_type}/normalized_multiabx.csv")
+#
+#     plot_selected_clusters(raw, meta, "diff_abx" + run_type)
+#     plot_significant_genes_number(meta, raw, antibiotics, treatments, "diff_abx" + run_type)
+#
+#     compare_significance_go(param="diff_abx" + run_type)
+#     clusters_compare_mix(antibiotics, treatments, "diff_abx" + run_type)
+#
+#     merge_results()
+#     # save_median_all_conditions(meta, raw, antibiotics, treatments, "Treatment", "diff_abx" + run_type)
+#     our = plot_categories(antibiotics, treatments, "\\diff_abx" + run_type, False, regular=False)
+#     gsea = plot_categories(antibiotics, treatments, "\\diff_abx" + "GSEA", False, regular=False, gsea=True,
+#                            anchor=(0.5, -5.2))
+#     plot_correlation_gsea(gsea, our)

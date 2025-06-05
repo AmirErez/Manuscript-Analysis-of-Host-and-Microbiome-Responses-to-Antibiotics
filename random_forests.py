@@ -1,9 +1,12 @@
+import os
+
 import gseapy
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 import requests
 import seaborn as sns
-
+from scipy.spatial.distance import squareform
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import confusion_matrix, classification_report
 from sklearn.model_selection import train_test_split
@@ -13,11 +16,15 @@ from ClusteringGO import read_process_files, treatments, transform_data, antibio
 
 light_blue = plt.rcParams['axes.prop_cycle'].by_key()['color'][0]
 orange = plt.rcParams['axes.prop_cycle'].by_key()['color'][1]
-def plot_confusion_matrix(addition="", factor=1, path="./Private/YasminRandomForest", order=None, random=False, size=(10, 10)):
+
+
+def plot_confusion_matrix(addition="", factor=1, path="./Private/YasminRandomForest", order=None, random=False,
+                          size=(10, 10)):
     # plot it as a heatmap, make x label "predicted", y label "true"
     import matplotlib.pyplot as plt
     import seaborn as sns
-    forest_confusion_matrix = pd.read_csv(path + f"/confusion_matrix{addition}{'_random' if random else ''}.csv", index_col=0)
+    forest_confusion_matrix = pd.read_csv(path + f"/confusion_matrix{addition}{'_random' if random else ''}.csv",
+                                          index_col=0)
     if order:
         forest_confusion_matrix = forest_confusion_matrix.loc[order, order]
     fig, ax = plt.subplots(figsize=size)
@@ -32,11 +39,13 @@ def plot_confusion_matrix(addition="", factor=1, path="./Private/YasminRandomFor
 
     # increase size of number on the heatmap
     if factor != 1:
-        heatmap = sns.heatmap(forest_confusion_matrix / factor, annot=True, fmt=".1%", ax=ax, annot_kws={"size": 20}, vmin=0,
-                    vmax=1, norm=norm)
+        heatmap = sns.heatmap(forest_confusion_matrix / factor, annot=True, fmt=".1%", ax=ax, annot_kws={"size": 20},
+                              vmin=0,
+                              vmax=1, norm=norm)
         to_save = forest_confusion_matrix / factor
     else:
-        heatmap = sns.heatmap(forest_confusion_matrix, annot=True, fmt=".1%", ax=ax, annot_kws={"size": 20}, cmap="RdBu_r", vmin=0, vmax=1, norm=norm)
+        heatmap = sns.heatmap(forest_confusion_matrix, annot=True, fmt=".1%", ax=ax, annot_kws={"size": 20},
+                              cmap="RdBu_r", vmin=0, vmax=1, norm=norm)
         to_save = forest_confusion_matrix
 
     to_save.to_csv(path + f"/confusion_matrix{addition}{'_random' if random else ''}.csv")
@@ -48,10 +57,10 @@ def plot_confusion_matrix(addition="", factor=1, path="./Private/YasminRandomFor
     # if center not in tick_locs:
     #     tick_locs = sorted(list(tick_locs) + [center])
     # # tick_locs = [loc for loc in tick_locs if abs(loc - center) > 1e-6]
-    tick_locs = [center*i for i in range(int(1/center) + 1)]
+    tick_locs = [center * i for i in range(int(1 / center) + 1)]
 
     cbar.set_ticks(tick_locs)
-    tick_labels = [f'{loc*100:.0f}%' for loc in tick_locs]
+    tick_labels = [f'{loc * 100:.0f}%' for loc in tick_locs]
     # center_index = tick_locs.index(center)
     # tick_labels[center_index] = f'{center:.3f} (center)'
     cbar.set_ticklabels(tick_labels)
@@ -189,7 +198,6 @@ def classification_report_to_df(report_str):
     return df
 
 
-
 def four_way_forest(df, feature_columns, target_column, test_size=8 / 28, random_state=42):
     """
     Perform classification with a random forest classifier for four classes.
@@ -216,11 +224,11 @@ def four_way_forest(df, feature_columns, target_column, test_size=8 / 28, random
     y = label_encoder.fit_transform(y)
 
     # Split the data into training and testing sets
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, random_state=random_state+2,
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, random_state=random_state + 2,
                                                         stratify=y)
 
     # Build a random forest classifier
-    clf = RandomForestClassifier(random_state=random_state+1)
+    clf = RandomForestClassifier(random_state=random_state + 1)
     clf.fit(X_train, y_train)
 
     # Predictions on the test set
@@ -236,78 +244,12 @@ def four_way_forest(df, feature_columns, target_column, test_size=8 / 28, random
     # create a dictionary of the labels using the label encoder
     labels_dict = {i: label for i, label in enumerate(label_encoder.classes_)}
 
-    # print("Actual Labels:")
-    # print(labels_dict)
-
-    # print("\nConfusion Matrix:")
-    # print(conf_matrix)
-    # print("\nClassification Report:")
-    # print(classification_rep)
     # convert classification report to a DataFrame
     report = classification_report_to_df(classification_rep)
     # get features importance
     importance = pd.Series(clf.feature_importances_, index=feature_columns)
 
     return conf_matrix, report.values, importance, labels_dict
-
-def class_forest(df, feature_columns, target_column, test_size=8 / 28, random_state=42):
-    """
-    Perform classification with a random forest classifier for four classes.
-
-    Parameters:
-    - df: DataFrame with features and target variable.
-    - feature_columns: List of column names for features.
-    - target_column: Name of the target variable column.
-    - test_size: Proportion of the data to include in the test split (default is 0.2).
-    - random_state: Seed for random number generation (default is 42).
-
-    Returns:
-    - clf: Trained random forest classifier.
-    - conf_matrix: Confusion matrix.
-    - classification_rep: Classification report.
-    """
-
-    # Split the data into features (X) and target variable (y)
-    X = df[feature_columns]
-    y = df[target_column]
-
-    # Encode target variable if it's not numeric
-    label_encoder = LabelEncoder()
-    y = label_encoder.fit_transform(y)
-
-    # Split the data into training and testing sets
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, random_state=random_state,
-                                                        stratify=y)
-
-    # Build a random forest classifier
-    clf = RandomForestClassifier(random_state=random_state)
-    clf.fit(X_train, y_train)
-
-    # Predictions on the test set
-    y_pred = clf.predict(X_test)
-
-    # Get actual labels before encoding
-    actual_labels = label_encoder.inverse_transform(y_test)
-
-    # Evaluate the classifier
-    conf_matrix = confusion_matrix(y_test, y_pred)
-    classification_rep = classification_report(y_test, y_pred)
-
-    # create a dictionary of the labels using the label encoder
-    labels_dict = {i: label for i, label in enumerate(label_encoder.classes_)}
-
-    # print("Actual Labels:")
-    # print(labels_dict)
-    # print("\nConfusion Matrix:")
-    # print(conf_matrix)
-    # print("\nClassification Report:")
-    # print(classification_rep)
-    # convert classification report to a DataFrame
-    report = classification_report_to_df(classification_rep)
-    # get features importance
-    importance = pd.Series(clf.feature_importances_, index=feature_columns)
-
-    return conf_matrix, report.values, importance
 
 
 def four_way_random_forest_multiabx(abx_data, abx_metadata, title, column, abx=True, reps=10000,
@@ -344,14 +286,12 @@ def four_way_random_forest_multiabx(abx_data, abx_metadata, title, column, abx=T
     # normalizing confusion matrix by the sum of each row
     confusion_matrix = confusion_matrix.div(confusion_matrix.sum(axis=1), axis=0)
 
-    # make a df from the confusion matrix with columns |  PBS_DONOR   |  PBS_RECIPIENT  |  Vanco_DONOR  | Vanco_RECIPIENT |
-    # and rows |  PBS_DONOR   |  PBS_RECIPIENT  |  Vanco_DONOR  | Vanco_RECIPIENT |
-    # confusion_matrix = pd.DataFrame(confusion_matrix,
-    #                                 columns=[labels_dict[i] for i in range(confusion_matrix.shape[0])],
-    #                                 index=[labels_dict[i] for i in range(confusion_matrix.shape[0])])
     confusion_matrix.index = [labels_dict[i] for i in range(confusion_matrix.shape[0])]
     confusion_matrix.columns = [labels_dict[i] for i in range(confusion_matrix.shape[0])]
     # save the confusion matrix
+    # if path does not exist, create it
+    if not os.path.exists(path):
+        os.makedirs(path)
     confusion_matrix.to_csv(path + f"/confusion_matrix_{title}.csv", index=True)
 
     classification_report = pd.DataFrame(classification_report, columns=["precision", "recall", "f1-score", "support"])
@@ -445,11 +385,10 @@ def multi_abx_forest():
     _, metadata, _, data = read_process_files(new=False)
     data, metadata = transform_data(data, metadata, "RASflow",
                                     skip=True)  # note we don't do that due to 324 np.inf values caused by division by 0
-    # data.fillna(0, inplace=True)
 
     metadata["group"] = metadata["Drug"] + "_" + metadata["Treatment"]
     ensmus_to_gene = get_ensmus_dict()
-    background_id = background_analysis(data.rename(index=ensmus_to_gene).index)
+    # background_id = background_analysis(data.rename(index=ensmus_to_gene).index)
     background_id = data.rename(index=ensmus_to_gene).index.to_list()
     # for treat in ["IP"]:
     for treat in treatments:
@@ -460,127 +399,18 @@ def multi_abx_forest():
 
         plot_confusion_matrix(f"_{treat}", factor=1, path="./Private/AbxRandomForest",
                               order=[abx + f"_{treat}" for abx in ["PBS"] + antibiotics])
-        # analyze_results(sub_data, sub_metadata, f"_{treat}", sizes=(800, 1600), background=background_id,
-        # analyze_results(sub_data, sub_metadata, f"_{treat}", sizes=(50,), background=background_id,
-        # analyze_results(sub_data, sub_metadata, f"_{treat}", sizes=(400,), background=background_id,
-        #                 # analyze_results(sub_data, sub_metadata, f"_{treat}", sizes=(50, 100, 200, 400, ), background=background_id,
-        #                 # analyze_results(sub_data, sub_metadata, f"_{treat}", sizes=(1600, ), background=background_id,
-        #                 treat=treat)
-        # analyze_results(sub_data, sub_metadata, f"_{treat}", sizes=(200,))
-        # analyze_results(sub_data, sub_metadata, f"_{treat}", sizes=(100, 200, 400))
-        # analyze_results(sub_data, sub_metadata, f"_{treat}", sizes=(50, 100, 200, 400, ))
-
-
-def van_forest():
-    _, metadata, _, data = read_process_files(new=False)
-    data, metadata = transform_data(data, metadata, "RASflow",
-                                    skip=True)
-    metadata["group"] = metadata["Drug"] + "_" + metadata["Treatment"]
-    ensmus_to_gene = get_ensmus_dict()
-    # background_id = background_analysis(data.rename(index=ensmus_to_gene).index)
-    background_id = data.rename(index=ensmus_to_gene).index.to_list()
-    # save as csv
-    data.rename(index=ensmus_to_gene).index.to_csv("./Private/all_genes_multiabx.csv")
-    # for abx in ["Van"]:
-    abx = "Van"
-    abx_metadata = metadata[(metadata["Drug"] == abx) | (metadata["Drug"] == "PBS")]
-    abx_data = data[abx_metadata['ID']]
-    column = "group"
-    abx_metadata[column] = abx_metadata.apply(
-        lambda row: row["Drug"] + "_" + row["Treatment"] if (
-                (row["Drug"] == "Van") & (row["Treatment"] == "IP")) else "other", axis=1)
-
-    path = "./Private/AbxRandomForest"
-    feature_importance = pd.read_csv(f"{path}/feature_importance_VanIPvsAll.csv")
-    feature_importance = feature_importance.set_index("gene id")
-    # plot a heatmap of top 100 features
-    genes = feature_importance.index[:100]
-    # sort abx_data columns lexically
-    # abx_data = abx_data.reindex(sorted(abx_data.columns), axis=1)
-    # other = abx_metadata[abx_metadata["group"] == "other"]["ID"]
-    # van = abx_metadata[abx_metadata["group"] == "Van_IP"]["ID"]
-    # to_plot = abx_data[np.concatenate([other.values, van.values])].loc[genes]
-    # # zscore rows
-    # to_plot = to_plot.apply(lambda x: (x - x.mean()) / x.std(), axis=1)
-    # sns.heatmap(data=to_plot, cmap="coolwarm")
-    # plt.show()
-
-    # four_way_random_forest_multitreat(sub_data, sub_metadata, abx, "group", abx=True, reps=10_000)
-    # van_random_forest(abx, abx_data, abx_metadata, column)
-
-    # plot_confusion_matrix(f"_{abx}IPvsAll", factor=1, path="./Private/AbxRandomForest",
-    #                       order=["Van_IP", "other"])
-    abx_metadata["group"] = metadata["Drug"] + "_" + metadata["Treatment"]
-
-    # # analyze_results(sub_data, sub_metadata, f"_{treat}", sizes=(800,), background=background_id,
-    analyze_results(abx_data, abx_metadata, f"_{abx}IPvsAll", sizes=(400,), background=background_id,
-                    # analyze_results(sub_data, sub_metadata, f"_{abx}", sizes=(50, 100, 200, 400, ), background=background_id,
-                    treat=abx)
-
-
-def van_random_forest(abx, abx_data, abx_metadata, column):
-    title = abx
-    reps = 10_000
-    path = "./Private/AbxRandomForest"
-    # add to data the group column from metadata
-    abx_data = abx_data.T
-    # intersecting_genes = fmt_data.index.intersection(abx_data.index)
-    abx_data = pd.merge(abx_data, abx_metadata[["ID", column]], left_index=True, right_on="ID").set_index("ID")
-    n = abx_metadata[column].nunique()
-    confusion_matrix = np.zeros((n, n))
-    classification_report = np.zeros((n, 4))
-    importance = pd.Series(np.zeros(len(abx_data.columns[:-1])), index=abx_data.columns[:-1])
-    from collections import Counter
-    smallest = min(list(Counter([group_name for group_name in abx_data[column] if group_name != "PBS"]).values()))
-    for i in range(reps):
-        # Down sample:
-        indexes = []
-        indexes.extend(
-            abx_data[abx_data["group"].str.startswith("Van")].sample(n=smallest, replace=False, random_state=i).index)
-        indexes.extend(abx_data[abx_data["group"] == "other"].sample(n=smallest, replace=False, random_state=i).index)
-        result = four_way_forest(abx_data.loc[indexes], abx_data.loc[indexes].columns[:-1], column,
-                                 test_size=n * 1.5 / abx_data.loc[indexes].shape[0], random_state=i)
-        confusion_matrix += result[0]
-        classification_report += result[1]
-        importance += result[2]
-        labels_dict = result[3]
-    confusion_matrix /= reps
-    classification_report /= reps
-    importance /= reps
-    print(f"Confusion Matrix:")
-    print(confusion_matrix)
-    confusion_matrix = pd.DataFrame(confusion_matrix)
-    # normalizing confusion matrix by the sum of each row
-    confusion_matrix = confusion_matrix.div(confusion_matrix.sum(axis=1), axis=0)
-    # make a df from the confusion matrix with columns |  PBS_DONOR   |  PBS_RECIPIENT  |  Vanco_DONOR  | Vanco_RECIPIENT |
-    # and rows |  PBS_DONOR   |  PBS_RECIPIENT  |  Vanco_DONOR  | Vanco_RECIPIENT |
-    # confusion_matrix = pd.DataFrame(confusion_matrix,
-    #                                 columns=[labels_dict[i] for i in range(confusion_matrix.shape[0])],
-    #                                 index=[labels_dict[i] for i in range(confusion_matrix.shape[0])])
-    confusion_matrix.index = [labels_dict[i] for i in range(confusion_matrix.shape[0])]
-    confusion_matrix.columns = [labels_dict[i] for i in range(confusion_matrix.shape[0])]
-    # save the confusion matrix
-    confusion_matrix.to_csv(path + f"/confusion_matrix_{title}IPvsAll.csv", index=True)
-    classification_report = pd.DataFrame(classification_report, columns=["precision", "recall", "f1-score", "support"])
-    print("\nClassification Report:")
-    print(classification_report)
-    # save feature importance
-    importance = importance.sort_values(ascending=False)
-    importance.to_csv(path + f"/feature_importance_{title}IPvsAll.csv", index=True)
-    # return confusion_matrix
-    return abx_data
+        analyze_results(sub_data, sub_metadata, f"_{treat}", sizes=(400,), background=background_id,
+                        treat=treat)
 
 
 def multi_treat_forest(random=False):
     _, metadata, _, data = read_process_files(new=False)
     data, metadata = transform_data(data, metadata, "RASflow", skip=True)
-    # data.fillna(0, inplace=True)
 
     metadata["group"] = metadata["Drug"] + "_" + metadata["Treatment"]
     ensmus_to_gene = get_ensmus_dict()
     # background_id = background_analysis(data.rename(index=ensmus_to_gene).index)
     background_id = data.rename(index=ensmus_to_gene).index.to_list()
-    # for abx in ["Van"]:
     for abx in antibiotics:
         sub_metadata = metadata[(metadata["Drug"] == abx) | (metadata["Drug"] == "PBS")]
         sub_data = data[sub_metadata['ID']]
@@ -589,11 +419,8 @@ def multi_treat_forest(random=False):
 
         plot_confusion_matrix(f"_{abx}", factor=1, path="./Private/AbxRandomForest",
                               order=[abx + f"_{treat}" for treat in treatments] + ["PBS"], random=random)
-        # # analyze_results(sub_data, sub_metadata, f"_{treat}", sizes=(800,), background=background_id,
-        # analyze_results(sub_data, sub_metadata, f"_{abx}", sizes=(400,), background=background_id,
-        #                 # analyze_results(sub_data, sub_metadata, f"_{abx}", sizes=(50, 100, 200, 400, ), background=background_id,
-        #                 treat=abx)
-        # analyze_results(sub_data, sub_metadata, f"_{abx}", sizes=(800, 1600, ), background=background_id,
+        analyze_results(sub_data, sub_metadata, f"_{abx}", sizes=(400,), background=background_id,
+                        treat=abx)
 
 
 def get_ensmus_dict():
@@ -611,11 +438,6 @@ factors = {
     "Neo": 140,
     "Van": 45,
     "Mix": 18,
-    # "AMP": 4,
-    # "MIX": 4,
-    # "NEO": 4,
-    # "VAN": 4,
-    # "MET": 4,
 }
 
 
@@ -648,13 +470,6 @@ def plot_cumsum(feature_importance, title):
 
     # Show the plot
     plt.show()
-
-    # # Print the number of features needed for 80% and 90% importance
-    # features_80 = len(feature_importance_sorted[feature_importance_sorted['cumsum_percent'] <= 80])
-    # features_90 = len(feature_importance_sorted[feature_importance_sorted['cumsum_percent'] <= 90])
-    #
-    # print(f"Number of features needed for 80% importance: {features_80}")
-    # print(f"Number of features needed for 90% importance: {features_90}")
 
 
 def analyze_results(data, metadata, title, background, treat, sizes=(100, 200, 400), abx=None, random=False):
@@ -696,240 +511,15 @@ def analyze_results(data, metadata, title, background, treat, sizes=(100, 200, 4
         top_df = top_df.rename(columns=metadata.set_index('ID')['group'].to_dict())
         top_df.rename(index=ensmus_to_gene, inplace=True)
 
-        # plt.scatter(top_df.columns, top_df.loc["Gsk3b"])
-        # options = ["PBS_IP", "Amp_IP", "Met_IP", "Neo_IP", "Van_IP", "Mix_IP"]
-        # means = [np.mean(top_df.loc["Gsk3b"][abx]) for abx in options]
-        # plt.scatter(options, means, c="r", marker="x")
-        # plt.title("Gsk3b")
-        # plt.show()
         # background = background_analysis(top_df.index)
         dynamic_tree_plot(top_df, [gene for gene in background if type(gene) is str], factors[treat],
                           title + f"_{num_top}")
         continue
 
-        # dynamic_tree_plot(top_df, False, factors[treat], title)
-        # dynamic_tree_plot(top_df, False, factors[treat], title)
-        # continue
-        if "Cluster" in top_df.columns:
-            top_df = top_df.drop("Cluster", axis=1)
-
-        # cluster the genes using hierarchical clustering
-        cluster = sns.clustermap(top_df, row_cluster=True, metric="euclidean", method="average",
-                                 col_cluster=False, z_score=0)
-        # increase x labels font size
-        plt.xticks(fontsize=16)
-        # get the order of the genes after clustering
-        # genes = cluster.data2d.index
-        genes = cluster.dendrogram_row.reordered_ind
-        # show all y labels
-        plt.yticks(np.arange(len(top_df.index)), top_df.index, rotation=0, fontsize=8)
-        # remove y label
-        plt.ylabel("")
-        # increase figure size
-        plt.gcf().set_size_inches(15, 15 * num_top / 100)
-        # save the clustermap
-        plt.savefig(
-            f"./Private/AbxRandomForest/feature_importance_{num_top}_clustermap{'_' + abx if abx else ''}{title}.png")
-        plt.close()
-        top_df = top_df.iloc[genes]
-        top_df.to_csv(
-            f"./Private/AbxRandomForest/feature_importance_{num_top}_clustered{'_' + abx if abx else ''}{title}.csv")
-        treat = title.split("_")[-1].upper()
-        colors = {f'PBS_{treat}': light_blue, f'Amp_{treat}': 'red',
-                  f'Met_{treat}': orange, f'Van_{treat}': 'purple',
-                  f'Neo_{treat}': 'yellow', f'Mix_{treat}': 'pink'} if treat in treatments else {
-            "PBS_IP": light_blue, 'PBS_IV': "blue", "PBS_PO": "green",
-            f"{treat.capitalize()}_IP": "red", f'{treat.capitalize()}_IV': "orange",
-            f"{treat.capitalize()}_PO": "yellow",
-        }
-
-        plot_heatmap_colors(cluster, False, f"feature_importance_{num_top}{title}_heatmap", top_df, colors=colors,
-                            jump=False, path="./Private/AbxRandomForest", set_max=False, multiabx=True)
-
-
-# def dynamic_tree_cut(link, dist, factor, depth=4):
-#     from scipy.cluster.hierarchy import inconsistent, fcluster
-#
-#     # Calculate inconsistency statistics
-#     incons = inconsistent(link)
-#
-#     # Determine cut threshold based on inconsistency
-#     threshold = np.mean(incons[:, -1]) + factor * np.std(incons[:, -1])
-#
-#     clusters = fcluster(link, t=threshold, criterion='inconsistent', depth=depth)
-#     # Perform clustering
-#     return clusters
-
-
-# def dynamic_tree_cut(link, distances, factor, depth=4):
-#     # Calculate inconsistency statistics
-#     incons = inconsistent(link)
-#
-#     # Determine initial cut threshold based on inconsistency
-#     threshold = np.mean(incons[:, -1]) + 3 * np.std(incons[:, -1])
-#     # threshold = np.mean(incons[:, -1]) + factor * np.std(incons[:, -1])
-#
-#     # Perform initial clustering
-#     initial_clusters = fcluster(link, t=threshold, criterion='inconsistent', depth=depth)
-#
-#     # Calculate distances between points in the original data
-#     distance_matrix = squareform(distances)
-#
-#     # Create a linkage tree
-#     tree, nodes = to_tree(link, rd=True)
-#
-#     # Convert clusters to a dictionary format for easy access
-#     clusters = {i: np.where(initial_clusters == i)[0].tolist() for i in np.unique(initial_clusters)}
-#
-#     merged = True
-#     while merged:
-#         merged = False
-#         # Traverse the dendrogram tree and check adjacent clusters
-#         for node in nodes:
-#             if node.is_leaf():
-#                 continue
-#             left_cluster = get_leaves(node.get_left(), initial_clusters, clusters)
-#             right_cluster = get_leaves(node.get_right(), initial_clusters, clusters)
-#
-#             left_cluster_id = initial_clusters[left_cluster[0]]
-#             right_cluster_id = initial_clusters[right_cluster[0]]
-#             if right_cluster_id == left_cluster_id:
-#                 continue
-#
-#             within_left_var = calculate_within_cluster_variance(left_cluster, distance_matrix)
-#             within_right_var = calculate_within_cluster_variance(right_cluster, distance_matrix)
-#             between_var = calculate_between_cluster_variance(left_cluster, right_cluster, distance_matrix)
-#
-#             if within_left_var < between_var and within_right_var < between_var:
-#                 # Merge right cluster into left cluster
-#                 clusters[left_cluster_id] += right_cluster
-#                 for index in right_cluster:
-#                     initial_clusters[index] = left_cluster_id
-#                 del clusters[right_cluster_id]
-#                 merged = True
-#
-#     # Final cluster labels
-#     final_clusters = np.zeros(len(initial_clusters), dtype=int)
-#     for cluster_id, indices in clusters.items():
-#         final_clusters[indices] = cluster_id
-#
-#     return final_clusters
-
-import numpy as np
-from scipy.spatial.distance import squareform
-
-
-def calculate_within_cluster_variance(cluster_indices, distance_matrix):
-    if len(cluster_indices) <= 1:
-        return 0
-    within_cluster_dists = distance_matrix[np.ix_(cluster_indices, cluster_indices)]
-    return np.var(within_cluster_dists[np.triu_indices(len(cluster_indices), k=1)])
-
 
 def calculate_between_cluster_variance(cluster_indices_1, cluster_indices_2, distance_matrix):
     between_cluster_dists = distance_matrix[np.ix_(cluster_indices_1, cluster_indices_2)]
     return np.var(between_cluster_dists.flatten())
-
-
-def get_leaves(node):
-    if node.is_leaf():
-        return [node.id]
-    else:
-        return get_leaves(node.left) + get_leaves(node.right)
-
-
-def dynamic_tree_cut_old(data, distances, max_clusters=None, max_intra_to_inter_ratio=1.0):
-    from scipy.spatial.distance import squareform
-    """
-    Perform clustering by comparing in-group variance to between-group variance.
-
-    Parameters:
-    -----------
-    data : numpy.ndarray
-        Input data matrix where each row is a sample
-    max_clusters : int, optional
-        Maximum number of clusters to create. If None, determined dynamically.
-    max_intra_to_inter_ratio : float, optional
-        Threshold for merging clusters based on variance ratio
-
-    Returns:
-    --------
-    numpy.ndarray
-        Cluster labels for each sample
-    """
-    # Compute pairwise distances
-    dist_matrix = squareform(distances)
-    n_samples = len(data)
-
-    # Initialize each sample as its own cluster
-    clusters = [{i} for i in range(n_samples)]
-
-    def calculate_cluster_variance(cluster_indices):
-        if len(cluster_indices) <= 1:
-            return 0
-
-        # Select distances within the cluster
-        cluster_dist = dist_matrix[np.ix_(list(cluster_indices), list(cluster_indices))]
-        return np.var(cluster_dist[np.triu_indices(len(cluster_indices), k=1)])
-
-    def calculate_between_cluster_variance(cluster1, cluster2):
-        # Compute distances between all points in two clusters
-        between_dist = dist_matrix[np.ix_(list(cluster1), list(cluster2))]
-        return np.var(between_dist)
-
-    # Clustering process
-    while len(clusters) > (max_clusters or 1):
-        # Find the two closest clusters to merge
-        best_merge = None
-        best_merge_score = float('inf')
-
-        for i in range(len(clusters)):
-            for j in range(i + 1, len(clusters)):
-                # Compute cluster variances
-                intra_var1 = calculate_cluster_variance(clusters[i])
-                intra_var2 = calculate_cluster_variance(clusters[j])
-                between_var = calculate_between_cluster_variance(clusters[i], clusters[j])
-
-                # Compute merge score
-                # Lower score means more similar clusters
-                merge_score = (intra_var1 + intra_var2) / (between_var + 1e-10)
-
-                if merge_score < best_merge_score:
-                    best_merge = (i, j)
-                    best_merge_score = merge_score
-
-        # Check if merging is beneficial
-        if best_merge_score > max_intra_to_inter_ratio:
-            break
-
-        # Merge the best pair of clusters
-        i, j = best_merge
-        merged_cluster = clusters[i].union(clusters[j])
-
-        # Remove old clusters and add new merged cluster
-        clusters = [
-            cluster for k, cluster in enumerate(clusters)
-            if k not in {i, j}
-        ]
-        clusters.append(merged_cluster)
-
-    # Assign cluster labels
-    cluster_labels = np.zeros(n_samples, dtype=int)
-    for label, cluster in enumerate(clusters):
-        for sample in cluster:
-            cluster_labels[sample] = label
-
-    return cluster_labels
-
-
-def dynamic_tree_cut_ready_made(df, size_penalty_factor=5, min_cluster_size=5):
-    # from sklearn.cluster import HDBSCAN
-    # hdb = HDBSCAN(min_cluster_size=min_cluster_size, cluster_selection_epsilon=0.2)
-    # hdb.fit(df)
-    # return hdb.labels_
-    from sklearn.cluster import AgglomerativeClustering
-    clustering = AgglomerativeClustering(n_clusters=5).fit(df)
-    return clustering.labels_
 
 
 def dynamic_tree_cut(link, distances, size_penalty_factor=50, min_cluster_size=3):
@@ -990,75 +580,6 @@ def check_enrichment(genes, background):
         return gseapy.enrichr(gene_list=genes, gene_sets=db, organism="mouse", outdir=None,
                               background=background).results
     return gseapy.enrichr(gene_list=genes, gene_sets=db, organism="mouse", outdir=None).results
-
-
-# def check_enrichment(genes, background):
-#     import json
-#     genes = [gene for gene in genes if type(gene) is str]
-#     description = ",".join(genes)
-#
-#     db = "GO_Biological_Process_2023"
-#     if background:
-#         base_url = "https://maayanlab.cloud/speedrichr"
-#         res = requests.post(
-#             base_url + '/api/addList',
-#             files=dict(
-#                 list=(None, '\n'.join(genes)),
-#                 description=(None, description),
-#             )
-#         )
-#         if res.ok:
-#             userlist_response = res.json()
-#             response = userlist_response["userListId"]
-#             ENRICHR_URL = 'https://maayanlab.cloud/Enrichr/view?userListId=%s'
-#             req_res = requests.get(ENRICHR_URL % response)
-#             if req_res.ok:
-#                 uploaded_genes = json.loads(req_res.text)["genes"]
-#                 if sorted([gene.lower() for gene in genes]) != sorted([gene.lower() for gene in uploaded_genes]):
-#                     print(sorted([gene.lower() for gene in genes]), '\n', sorted([gene.lower() for gene in uploaded_genes]))
-#                 # assert sorted([gene.lower() for gene in genes]) == sorted([gene.lower() for gene in uploaded_genes])
-#         else:
-#             return
-#         base_url = "https://maayanlab.cloud/speedrichr"
-#
-#         res = requests.post(
-#             base_url + '/api/backgroundenrich',
-#             data=dict(
-#                 userListId=response,
-#                 backgroundid=background,
-#                 backgroundType=db,
-#             )
-#         )
-#         if res.ok:
-#             results = res.json()
-#             return results[db]
-#     else:
-#         ENRICHR_URL = 'https://maayanlab.cloud/Enrichr/addList'
-#         payload = {
-#             'list': (None, '\n'.join(genes)),
-#             'description': (None, description)
-#         }
-#
-#         res = requests.post(ENRICHR_URL, files=payload)
-#         if res.ok:
-#             userlist_response = json.loads(res.text)
-#             response = userlist_response["userListId"]
-#             ENRICHR_URL = 'https://maayanlab.cloud/Enrichr/view?userListId=%s'
-#             req_res = requests.get(ENRICHR_URL % response)
-#             if req_res.ok:
-#                 uploaded_genes = json.loads(req_res.text)["genes"]
-#                 assert sorted([gene.lower() for gene in genes]) == sorted([gene.lower() for gene in uploaded_genes])
-#         else:
-#             return
-#
-#         ENRICHR_URL = 'https://maayanlab.cloud/Enrichr/enrich'
-#         query_string = '?userListId=%s&backgroundType=%s'
-#         res = requests.get(
-#             ENRICHR_URL + query_string % (response, db)
-#         )
-#         if res.ok:
-#             results = json.loads(res.text)
-#             return results[db]
 
 
 def remap_clusters(clusters, order):
@@ -1179,11 +700,6 @@ def dynamic_tree_plot(top_df, background, factor, title):
         # print(f"Cluster {cluster_id}: {indexes}")
         enrichment = check_enrichment([gene for gene in indexes if type(gene) is str], background)
         if enrichment is not None:
-            # print(cluster_id, ": ", indexes, "\n", enrichment)
-            # enrichment = pd.DataFrame(enrichment, columns=["index", "Name", "P-value", "Odds Ratio", "Combined score",
-            #                                                 "Overlap Genes", "Adjusted p-value",
-            #                                                 "old p-value", "old Adjusted p-value"])
-            # names[cluster_id] = enrichment
             enrichment["cluster_id"] = mapping[cluster_id]
             enrichment["#of_genes"] = enrichment["Genes"].str.count(";") + 1
             enrichment["All_Genes"] = ",".join([gene for gene in indexes if type(gene) is str])
@@ -1203,17 +719,7 @@ def dynamic_tree_plot(top_df, background, factor, title):
     # Create a color palette for the clusters
     n_clusters = len(np.unique(clusters))
     print(n_clusters)
-    # if n_clusters < 20:
-    #     palette = sns.color_palette("tab20")
-    # elif n_clusters < 25:
-    #     custom_palette = ['#FFF7EC', '#FEE8C8', '#FDD49E', '#FDBB84', '#FC8D59', '#EF6548', '#D7301F', '#990000',
-    #                       '#1F77B4', '#FF7F0E', '#2CA02C', '#D62728', '#9467BD', '#8C564B', '#E377C2', '#7F7F7F',
-    #                       '#BCBD22', '#17BECF', '#EDF8FB', '#BFD3E6', '#9EBCDA', '#8C96C6', '#8C6BB1', '#88419D', '#6E016B']
-    #     np.random.shuffle(custom_palette)
-    #     palette = sns.color_palette(custom_palette[:n_clusters])
-    # else:
-    #     palette = sns.color_palette("husl", n_colors=n_clusters + 1)
-    #     np.random.shuffle(palette)
+
     palette = sns.color_palette("tab10")
     # palette = palette + [(0, 0, 0)]  # Black in RGB is (0, 0, 0)
     # palette = sns.color_palette(palette)
@@ -1272,18 +778,6 @@ def dynamic_tree_plot(top_df, background, factor, title):
     plt.close()
 
 
-def sonia_forest():
-    data = pd.read_csv("../Data/Sonia/Partek_Sonia_GF_exp13_Normalization_Normalized_counts_for_Deseq2.csv",
-                       index_col=0)
-    metadata = pd.read_csv("../Data/Sonia/metadata for Random forest.txt", sep='\t')
-    # rename "Sample" to "ID" column
-    metadata.columns = ["ID", "Condition"]
-    four_way_random_forest_multiabx(data, metadata, "Sonia", "Condition", abx=False, reps=10000)
-
-
 if __name__ == "__main__":
-    # multi_abx_forest()
+    multi_abx_forest()
     multi_treat_forest()
-    # van_forest()
-    # multi_treat_forest(random=True)
-    # sonia_forest()
