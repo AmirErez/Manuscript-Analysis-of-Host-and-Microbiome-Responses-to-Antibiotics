@@ -473,6 +473,7 @@ def plot_cumsum(feature_importance, title):
     # plt.show()
     plt.close()
 
+
 def analyze_results(data, metadata, title, background, treat, sizes=(100, 200, 400), abx=None, random=False):
     samples_order = []
     if treat in treatments:
@@ -485,7 +486,8 @@ def analyze_results(data, metadata, title, background, treat, sizes=(100, 200, 4
             samples_order.extend(metadata[(metadata["Drug"] == treat) & (metadata["Treatment"] == treat_)]["ID"].values)
     data = data[samples_order]
     # change group column to group (ID)
-    feature_importance = pd.read_csv(os.path.join("Private", "AbxRandomForest", f"feature_importance{title}.csv"), index_col=0)
+    feature_importance = pd.read_csv(os.path.join("Private", "AbxRandomForest", f"feature_importance{title}.csv"),
+                                     index_col=0)
     ensmus_to_gene = get_ensmus_dict()
     # rename index to "gene" and rename first column to "importance"
     feature_importance.index.name = "gene"
@@ -710,10 +712,11 @@ def dynamic_tree_plot(top_df, background, factor, title):
     enrichment_analysis["adj.P-val<5%"] = enrichment_analysis["Adjusted P-value"] < 0.05
     enrichment_analysis["P-val<5%"] = enrichment_analysis["P-value"] < 0.05
     enrichment_analysis.to_csv(os.path.join("Private", "AbxRandomForest",
-        f"cluster_dynamic{title}_enrichment_{'background' if background else ''}.csv"),
-        index=False)
-    enrichment_analysis[enrichment_analysis["Adjusted P-value"] < 0.05].to_csv(os.path.join("Private", "AbxRandomForest",
-        f"cluster_dynamic{title}_enrichment_{'background' if background else ''}_filtered.csv"),
+                                            f"cluster_dynamic{title}_enrichment_{'background' if background else ''}.csv"),
+                               index=False)
+    enrichment_analysis[enrichment_analysis["Adjusted P-value"] < 0.05].to_csv(
+        os.path.join("Private", "AbxRandomForest",
+                     f"cluster_dynamic{title}_enrichment_{'background' if background else ''}_filtered.csv"),
         index=False)
 
     # Create a color palette for the clusters

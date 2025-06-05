@@ -566,8 +566,9 @@ def plot_composition(data, loc, thresh, colors, level, labels, qiime=True):
     # set title location to be above the plot
     fig.subplots_adjust(top=0.95)
     set_plot_defaults()
-    plt.savefig(os.path.join("Private", f"compositional_microbiome_population_{loc}_{thresh}_same_labels_all{level}.png"),
-                format='png', dpi=300, bbox_inches='tight')
+    plt.savefig(
+        os.path.join("Private", f"compositional_microbiome_population_{loc}_{thresh}_same_labels_all{level}.png"),
+        format='png', dpi=300, bbox_inches='tight')
     # plt.show()
     plt.close()
     return eff_num
@@ -1263,7 +1264,8 @@ def get_go(download_anyway=False):
 
 
 def get_selected_df(abx, treat, exp_type, regular=True, fdr=True):
-    df = pd.read_csv(os.path.join("Data", "clusters_properties", f"top_correlated_GO_terms_{abx}_{treat}.tsv"), sep="\t")
+    df = pd.read_csv(os.path.join("Data", "clusters_properties", f"top_correlated_GO_terms_{abx}_{treat}.tsv"),
+                     sep="\t")
     selected = df[(df['fdr correlation'] < 0.05)]
     return selected
 
@@ -2185,10 +2187,10 @@ def plot_auroc_vs_noise(result: dict, exp_name, response_tag):
     plt.tight_layout()
     set_plot_defaults()
 
-    fig.savefig(
-        f"./Private/{base_dir}/{exp_name}_{response_tag}_mean_auroc_vs_noise_{coda_method}_{response_based}_with_noise_analysis.png")
-    fig.savefig(
-        f"./Private/{base_dir}/{exp_name}_{response_tag}_mean_auroc_vs_noise_{coda_method}_{response_based}_with_noise_analysis.svg")
+    fig.savefig(os.path.join("Private",
+                             f"{exp_name}_{response_tag}_mean_auroc_vs_noise_{coda_method}_{response_based}_with_noise_analysis.png"))
+    fig.savefig(os.path.join("Private",
+                             f"{exp_name}_{response_tag}_mean_auroc_vs_noise_{coda_method}_{response_based}_with_noise_analysis.svg"))
 
     plt.close(fig)
 
@@ -2239,11 +2241,11 @@ def figure_s():
     # for treat in ["PO"]:
     for treat in ["PO", "IP"]:
         for response in range(1, 4):
-            results = extract_auroc_data(f"./Private/auroc-van/to_publish/auroc_{treat}_{response}.csv")
+            results = extract_auroc_data(os.path.join("Data", "auroc", f"auroc_{treat}_{response}.csv"))
             plot_auroc_vs_noise(results, f"Van-{treat}", tags[response - 1])
 
 
 if __name__ == '__main__':
     figure1()
     figure2()
-    # figure_s()
+    figure_s()
