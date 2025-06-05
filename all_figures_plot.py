@@ -255,10 +255,10 @@ def filter_d0(df):
 
 
 def get_qiime():
-    metadata = pd.read_csv(f"../Data/QIIME/qiime_metadata.tsv", sep="\t")
+    metadata = pd.read_csv(os.path.join("Data", "qiime_metadata.tsv"), sep="\t")
     metadata["Type"] = "feces"
     metadata = metadata.set_index("#SampleID")
-    df = pd.read_csv(f"../Data/QIIME/qiime_data_normalized.tsv", sep="\t")
+    df = pd.read_csv(os.path.join("Data", "qiime_data_normalized.tsv"), sep="\t")
 
     # # remove V11
     # metadata = metadata[~metadata.index.str.contains('V11')]
