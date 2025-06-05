@@ -425,8 +425,7 @@ def multi_treat_forest(random=False):
 
 
 def get_ensmus_dict():
-    folder_dir = f"../Data/MultiAbx-16s/MultiAbx-RPKM-RNAseq-B6/new normalization/"
-    df = pd.read_csv(folder_dir + "transcriptome_2023-09-17-genes_norm_named.tsv", sep="\t")
+    df = pd.read_csv("Data" + "transcriptome_2023-09-17-genes_norm_named.tsv", sep="\t")
     return df.set_index('gene_id')['gene_name'].to_dict()
 
 
