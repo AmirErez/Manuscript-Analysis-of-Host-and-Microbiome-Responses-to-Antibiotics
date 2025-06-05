@@ -60,7 +60,7 @@ mitochondrial_genes_translation = {
 # save the values of the dictionary in a list
 mitochondrial_genes = list(mitochondrial_genes_translation.values())
 
-private = os.path.join(".", "Private")
+private = os.path.join("Private")
 path = os.path.join(private, "clusters_properties\\")
 
 
@@ -1627,10 +1627,10 @@ def plot_significant_genes_number(meta, raw, antibiotics, treatments, param, con
                      "log_fold_change": df_fold[abx][treat]}, index=[0])
                 df = pd.concat([df, new_row], ignore_index=True)
         # save df
-        df.to_csv(private + f"statistics_genes.csv", index=False)
-        with open(private + f'statistics_genes.pkl', 'wb') as file:
+        df.to_csv(os.path.join(private, f"statistics_genes.csv"), index=False)
+        with open(os.path.join(private, f'statistics_genes.pkl'), 'wb') as file:
             pickle.dump(genes, file)
-        all_stats.to_csv(private + f"all_stats.csv", index=True)
+        all_stats.to_csv(os.path.join(private, f"all_stats.csv"), index=True)
     else:
         df = pd.read_csv(os.path.join(private, "statistics_genes.csv"))
         with open(os.path.join(private, 'statistics_genes.pkl'), 'rb') as file:
@@ -2084,7 +2084,7 @@ def compare_significance_go(raw, meta, param):
                                regular=False)
     go_number = pd.read_csv(os.path.join(private, "GO_number.csv"),
                             index_col=0)
-    significant_genes = pd.read_csv(private + f"/analysis/{param}/statistics_genes.csv")
+    significant_genes = pd.read_csv(os.path.join(private, "statistics_genes.csv"))
     significant_genes["condition"] = significant_genes["Antibiotic"] + "_" + significant_genes["Treatment"]
     significant_genes["go_number"] = 0
     significant_genes["true_positive"] = 0
