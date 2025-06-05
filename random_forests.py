@@ -12,7 +12,8 @@ from sklearn.metrics import confusion_matrix, classification_report
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
 
-from ClusteringGO import read_process_files, treatments, transform_data, antibiotics
+from ClusteringGO import treatments, transform_data, antibiotics
+from all_figures_plot import read_process_files
 
 light_blue = plt.rcParams['axes.prop_cycle'].by_key()['color'][0]
 orange = plt.rcParams['axes.prop_cycle'].by_key()['color'][1]

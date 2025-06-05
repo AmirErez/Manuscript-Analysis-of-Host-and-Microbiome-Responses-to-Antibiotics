@@ -1481,7 +1481,7 @@ def compare_compores_all_antibiotics(genes, folder, threshold=False):
     color_map = {abx: unique_colors[i] for i, abx in enumerate(antibiotics)}
 
     adjust_font_sizes()
-    folder_path = fr"D:\Master heavy files\CompoResAllConditions{'\\0_05' if threshold else ''}"
+    folder_path = fr"D:\Master heavy files\CompoResAllConditions{'0_05' if threshold else ''}"
     # Create subplots
     n_treat = len(treatments)
     fig, axes = plt.subplots(nrows=1, ncols=n_treat, figsize=(10 * n_treat, 5), sharey=True)
