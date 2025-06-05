@@ -360,9 +360,6 @@ def create_csv(level='taxon', impute=True, qiime=True, d0=False):
         df['treatment'] = df.apply(
             lambda x: "PO" if meta.loc[x.name].treatment == "gavage" else meta.loc[x.name].treatment, axis=1)
         df.index.name = 'sample_id'
-        # add_median(df, place, by_cluster, genes) # shouldn't be here anymore!
-        # add_median(data_frame, place)
-        # data_frame.to_csv(f"./private/otu_merged_{place}_reduced_{threshold}_sum-1000_fam.tsv", sep="\treat")
 
         df.to_csv(
             os.path.join("Private", f"otu_merged_{place}_{level}{'_qiime' if qiime else ''}{'_d0' if d0 else ''}.tsv"),
@@ -384,9 +381,9 @@ def create_csv(level='taxon', impute=True, qiime=True, d0=False):
                 temp.index = temp.index.str.split(".").str[0]
                 temp = temp[temp.columns[:-3]]
 
-                temp.to_csv(
-                    f"./private/CompoResGenes/{abx.capitalize()}-{treat if treat != 'gavage' else 'PO'}-{data_name}.tsv",
-                    sep="\t")
+                temp.to_csv(os.path.join("Private",
+                                         f"{abx.capitalize()}-{treat if treat != 'gavage' else 'PO'}-{data_name}.tsv"),
+                            sep="\t")
         if qiime:
             return
     # print(missing)
@@ -530,8 +527,9 @@ def plot_composition(data, loc, thresh, colors, level, labels, qiime=True):
             plt.subplot(rows, cols, j * cols + i + 1).tick_params('x', labelrotation=20, labelsize=30)
     # Convert barplot_data to a DataFrame and save to CSV
     df_barplot = pd.DataFrame(barplot_data)
-    df_barplot.to_csv(os.path.join("Private", f"compositional_microbiome_population_{loc}_{thresh}_{level}_barplot_values.csv"),
-                      index=False)
+    df_barplot.to_csv(
+        os.path.join("Private", f"compositional_microbiome_population_{loc}_{thresh}_{level}_barplot_values.csv"),
+        index=False)
 
     # plt.subplot(rows, cols, cols * rows - (cols // 2)).set_xlabel("Sample")
     # plt.subplot(rows, cols, cols + 1).set_ylabel("Population")
@@ -568,9 +566,7 @@ def plot_composition(data, loc, thresh, colors, level, labels, qiime=True):
     # set title location to be above the plot
     fig.subplots_adjust(top=0.95)
     set_plot_defaults()
-    # plt.savefig(f"./private/compositional_microbiome_population_{loc}_{thresh}_same_labels_all{level}.svg",
-    #             format='svg', dpi=180)
-    plt.savefig(f"./private/compositional_microbiome_population_{loc}_{thresh}_same_labels_all{level}.png",
+    plt.savefig(os.path.join("Private", f"compositional_microbiome_population_{loc}_{thresh}_same_labels_all{level}.png"),
                 format='png', dpi=300, bbox_inches='tight')
     plt.show()
     plt.close()
@@ -594,7 +590,7 @@ def plot_effective_number_heatmap(eff_num, loc, thresh, drugs, treats, maximal, 
     sns.set(font_scale=1.4)
     sns.heatmap(eff_num, cmap="Blues", vmin=minimal, vmax=maximal)
     # save eff_num to csv
-    eff_num.to_csv(f"./private/effective_number_of_{level}_{loc}_{thresh}.csv")
+    eff_num.to_csv(os.path.join("Private", f"effective_number_of_{level}_{loc}_{thresh}.csv"))
     name = level if not level.endswith('y') else level[:-1] + 'i'
     name += 'es' if name != 'taxa' else ''
     name = "genera" if name == "genuses" else name
@@ -603,7 +599,7 @@ def plot_effective_number_heatmap(eff_num, loc, thresh, drugs, treats, maximal, 
     plt.title(f"{title} {name}, {loc.replace('_', ' ')}")
     # increase font size of axis labels and title
     # plt.rc('font', size=16)
-    plt.savefig(f"./private/effective number of {level}_{loc}_{thresh}.png")
+    plt.savefig(os.path.join("Private", f"effective number of {level}_{loc}_{thresh}.png"))
     plt.show()
 
 
@@ -932,22 +928,22 @@ def run_pcoa_functions():
                          False)
 
     # save qiime_data to a csv
-    qiime_data.to_csv("./private/qiime_data.tsv", sep="\t")
+    qiime_data.to_csv(os.path.join("Private", "qiime_data.tsv"), sep="\t")
     # normalize each column to sum to 100_000
     qiime_data_norm = qiime_data.div(qiime_data.sum(axis=0), axis=1) * 100_000
     # save the normalized data
-    qiime_data_norm.to_csv("./private/qiime_data_normalized.tsv", sep="\t")
+    qiime_data_norm.to_csv(os.path.join("Private", "qiime_data_normalized.tsv"), sep="\t")
     # remove all columns with .d0, .d1
     qiime_data_d4 = qiime_data[[col for col in qiime_data.columns if ".d0" not in col and ".d1" not in col]]
     # save the data without d0 and d1
-    qiime_data_d4.to_csv("./private/qiime_data_d4.tsv", sep="\t")
+    qiime_data_d4.to_csv(os.path.join("Private", "qiime_data_d4.tsv"), sep="\t")
     # normalize each column to sum to 100_000
     qiime_data_d4_norm = qiime_data_d4.div(qiime_data_d4.sum(axis=0), axis=1) * 100_000
     # save the normalized data
-    qiime_data_d4_norm.to_csv("./private/qiime_data_d4_normalized.tsv", sep="\t")
+    qiime_data_d4_norm.to_csv(os.path.join("Private", "qiime_data_d4_normalized.tsv"), sep="\t")
 
     # save qiime_metadata to a csv
-    qiime_metadata.to_csv("./private/qiime_metadata.tsv", sep="\t", index=False)
+    qiime_metadata.to_csv(os.path.join("Private", "qiime_metadata.tsv"), sep="\t", index=False)
 
     # run fastspar
 
