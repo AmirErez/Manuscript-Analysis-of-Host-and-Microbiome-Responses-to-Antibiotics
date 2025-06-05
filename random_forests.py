@@ -18,7 +18,7 @@ light_blue = plt.rcParams['axes.prop_cycle'].by_key()['color'][0]
 orange = plt.rcParams['axes.prop_cycle'].by_key()['color'][1]
 
 
-def plot_confusion_matrix(addition="", factor=1, path="./Private/YasminRandomForest", order=None, random=False,
+def plot_confusion_matrix(addition="", factor=1, path=os.path.join("Private"), order=None, random=False,
                           size=(10, 10)):
     # plot it as a heatmap, make x label "predicted", y label "true"
     import matplotlib.pyplot as plt
@@ -74,7 +74,7 @@ def plot_confusion_matrix(addition="", factor=1, path="./Private/YasminRandomFor
     plt.close()
 
 
-def plot_heatmap_colors(cluster, col_cluster, save_name, top_df, path="./Private/YasminRandomForest", normalize=True,
+def plot_heatmap_colors(cluster, col_cluster, save_name, top_df, path=os.path.join("Private"), normalize=True,
                         colors=None, title="", jump=7, xticks=[3.5, 10.5, 17.5, 24.5], show_all_y=True, hline=None,
                         vline=False, sort=True, set_max=True, multiabx=False):
     if col_cluster:
@@ -253,7 +253,7 @@ def four_way_forest(df, feature_columns, target_column, test_size=8 / 28, random
 
 
 def four_way_random_forest_multiabx(abx_data, abx_metadata, title, column, abx=True, reps=10000,
-                                    path="./Private/AbxRandomForest"):
+                                    path=os.path.join("Private", "AbxRandomForest")):
     # add to data the group column from metadata
     abx_data = abx_data.T
     # intersecting_genes = fmt_data.index.intersection(abx_data.index)
@@ -304,7 +304,7 @@ def four_way_random_forest_multiabx(abx_data, abx_metadata, title, column, abx=T
 
 
 def four_way_random_forest_multitreat(abx_data, abx_metadata, title, column, abx=True, reps=10000,
-                                      path="./Private/AbxRandomForest", random=False):
+                                      path=os.path.join("Private", "AbxRandomForest"), random=False):
     # add to data the group column from metadata
     abx_data = abx_data.T
     # intersecting_genes = fmt_data.index.intersection(abx_data.index)
@@ -397,7 +397,7 @@ def multi_abx_forest():
 
         four_way_random_forest_multiabx(sub_data, sub_metadata, treat, "group", abx=True, reps=10_000)
 
-        plot_confusion_matrix(f"_{treat}", factor=1, path="./Private/AbxRandomForest",
+        plot_confusion_matrix(f"_{treat}", factor=1, path=os.path.join("Private", "AbxRandomForest"),
                               order=[abx + f"_{treat}" for abx in ["PBS"] + antibiotics])
         analyze_results(sub_data, sub_metadata, f"_{treat}", sizes=(400,), background=background_id,
                         treat=treat)
@@ -417,7 +417,7 @@ def multi_treat_forest(random=False):
 
         four_way_random_forest_multitreat(sub_data, sub_metadata, abx, "group", abx=True, reps=10_000, random=random)
 
-        plot_confusion_matrix(f"_{abx}", factor=1, path="./Private/AbxRandomForest",
+        plot_confusion_matrix(f"_{abx}", factor=1, path=os.path.join("Private", "AbxRandomForest"),
                               order=[abx + f"_{treat}" for treat in treatments] + ["PBS"], random=random)
         analyze_results(sub_data, sub_metadata, f"_{abx}", sizes=(400,), background=background_id,
                         treat=abx)
@@ -466,7 +466,7 @@ def plot_cumsum(feature_importance, title):
 
     plt.legend()
     plt.grid(True)
-    plt.savefig(f"./Private/AbxRandomForest/feature_importance_cum-sum{title}.png")
+    plt.savefig(path=os.path.join("Private", "AbxRandomForest", "feature_importance_cum-sum{title}.png"))
 
     # Show the plot
     plt.show()
@@ -484,8 +484,7 @@ def analyze_results(data, metadata, title, background, treat, sizes=(100, 200, 4
             samples_order.extend(metadata[(metadata["Drug"] == treat) & (metadata["Treatment"] == treat_)]["ID"].values)
     data = data[samples_order]
     # change group column to group (ID)
-
-    feature_importance = pd.read_csv(f"./Private/AbxRandomForest/feature_importance{title}.csv", index_col=0)
+    feature_importance = pd.read_csv(os.path.join("Private", "AbxRandomForest", f"feature_importance{title}.csv"), index_col=0)
     ensmus_to_gene = get_ensmus_dict()
     # rename index to "gene" and rename first column to "importance"
     feature_importance.index.name = "gene"
@@ -709,11 +708,11 @@ def dynamic_tree_plot(top_df, background, factor, title):
     enrichment_analysis = enrichment_analysis.drop(["Old P-value", "Old adjusted P-value"], axis=1)
     enrichment_analysis["adj.P-val<5%"] = enrichment_analysis["Adjusted P-value"] < 0.05
     enrichment_analysis["P-val<5%"] = enrichment_analysis["P-value"] < 0.05
-    enrichment_analysis.to_csv(
-        f"./Private/AbxRandomForest/cluster_dynamic{title}_enrichment_{'background' if background else ''}.csv",
+    enrichment_analysis.to_csv(os.path.join("Private", "AbxRandomForest",
+        f"cluster_dynamic{title}_enrichment_{'background' if background else ''}.csv"),
         index=False)
-    enrichment_analysis[enrichment_analysis["Adjusted P-value"] < 0.05].to_csv(
-        f"./Private/AbxRandomForest/cluster_dynamic{title}_enrichment_{'background' if background else ''}_filtered.csv",
+    enrichment_analysis[enrichment_analysis["Adjusted P-value"] < 0.05].to_csv(os.path.join("Private", "AbxRandomForest",
+        f"cluster_dynamic{title}_enrichment_{'background' if background else ''}_filtered.csv"),
         index=False)
 
     # Create a color palette for the clusters
@@ -761,7 +760,7 @@ def dynamic_tree_plot(top_df, background, factor, title):
 
     # save
     plotted_data = g.data2d
-    plotted_data.to_csv(f"./Private/AbxRandomForest/cluster_dynamic{title}.csv")
+    plotted_data.to_csv(os.path.join("Private", "AbxRandomForest", f"cluster_dynamic{title}.csv"))
 
     # # Adjust the colorbar label
     # g.ax_cbar.set_ylabel('Standardized Values')
@@ -772,8 +771,7 @@ def dynamic_tree_plot(top_df, background, factor, title):
     g.ax_row_dendrogram.legend(title='Clusters', loc="center")  # , bbox_to_anchor=(0.5, 0.8))
     plt.title('Clustered Heatmap with Dendrogram', y=1.02)
     plt.tight_layout()
-    plt.savefig(
-        f"./Private/AbxRandomForest/cluster_dynamic{title}.png")
+    plt.savefig(os.path.join("Private", "AbxRandomForest", f"cluster_dynamic{title}.png"))
     # plt.show()
     plt.close()
 

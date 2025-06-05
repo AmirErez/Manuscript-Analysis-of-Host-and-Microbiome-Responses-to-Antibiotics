@@ -287,11 +287,7 @@ def create_csv(level='taxon', impute=True, qiime=True, d0=False):
         taxonomy = [col.split("_")[1] for col in taxonomy]
 
     for place in ["feces", "SI_lumen", "SI_mucus"]:
-        if not qiime:
-            metadata = pd.read_csv(f"../Data/Abx_16s_data/elad_metadata_merge_all.tsv", sep="\t").set_index("#SampleID")
-            df = pd.read_csv(f"./private/otu_merged_{place}.tsv", sep="\t")
-        else:
-            df, metadata = get_qiime()
+        df, metadata = get_qiime()
         names = 7 if qiime else 8
         value_cols = df.columns[:-names]
         df[value_cols] = df[value_cols].fillna(0)
@@ -368,7 +364,7 @@ def create_csv(level='taxon', impute=True, qiime=True, d0=False):
         # add_median(data_frame, place)
         # data_frame.to_csv(f"./private/otu_merged_{place}_reduced_{threshold}_sum-1000_fam.tsv", sep="\treat")
 
-        df.to_csv(f"./private/otu_merged_{place}_{level}{'_qiime' if qiime else ''}{'_d0' if d0 else ''}.tsv", sep="\t")
+        df.to_csv(os.path.join("Private", f"otu_merged_{place}_{level}{'_qiime' if qiime else ''}{'_d0' if d0 else ''}.tsv"), sep="\t")
         # print(data_frame)
         for abx in df.antibiotic.unique():
             if abx == "PBS":
@@ -2255,8 +2251,6 @@ def figure_s():
 
 
 if __name__ == '__main__':
-    clusters_compare_mix(antibiotics, treatments, "diff_abxRASflow")
-
-    # figure1()
-    # figure2()
-    # figure_s()
+    figure1()
+    figure2()
+    figure_s()

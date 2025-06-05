@@ -54,11 +54,12 @@ def prepare_genes_to_compores(threshold=0.05, by_genes=False, folder=None):
     transcriptome, metadata = transform_data(transcriptome, metadata, "RASflow", skip=True)
     metadata["Category"] = metadata['Drug'] + "_" + metadata['Treatment']
     # if f"./Private/CompoResGenes/{folder}" does not exist, create it
-    if folder and os.path.exists(f"./Private/CompoResGenes/{folder}") is False:
-        os.makedirs(f"./Private/CompoResGenes/{folder}")
+    curr_path = os.path.join("Private", "CompoResGenes", folder)
+    if folder and os.path.exists(curr_path) is False:
+        os.makedirs(curr_path)
         # create folder "response" and "metadata"
-        os.makedirs(f"./Private/CompoResGenes/{folder}/response", exist_ok=True)
-        os.makedirs(f"./Private/CompoResGenes/{folder}/metadata", exist_ok=True)
+        os.makedirs(os.path.join(curr_path, "response"), exist_ok=True)
+        os.makedirs(os.path.join(curr_path, "metadata"), exist_ok=True)
     for treat in treatments:
         for abx in antibiotics:
             samples = metadata[
@@ -74,15 +75,16 @@ def prepare_genes_to_compores(threshold=0.05, by_genes=False, folder=None):
             curr_genes = curr.T[genes]
             # curr_genes.to_csv(f"./Private/feeding/{abx}-{treat}.tsv", sep="\t")
             addition = f"{folder}/response/" if folder else ""
-            curr_genes.to_csv(f"./Private/CompoResGenes/{addition}{abx}-{treat}.tsv", sep="\t")
+            compo_path = os.path.join("Private", "CompoResGenes")
+            curr_genes.to_csv(os.path.join(compo_path + f"{addition}{abx}-{treat}.tsv"), sep="\t")
             print(f"Number of significant genes for {abx}-{treat}: {len(genes)}")
             save_meta = samples.set_index("ID")['Category']
             addition = f"{folder}/metadata/" if folder else ""
-            save_meta.to_csv(f"./Private/CompoResGenes/{addition}{abx}-{treat}-metadata.tsv", sep="\t")
+            save_meta.to_csv(os.path.join(compo_path + f"{addition}{abx}-{treat}-metadata.tsv"), sep="\t")
 
 
 def calc_multi_abx_statistics(ttest=True):
-    path = "./Private/analysis/Diff_abxRASflow/all_stats_multi_abx.csv"
+    path = os.path.join("Private", "analysis", "Diff_abxRASflow", "all_stats_multi_abx.csv")
     if os.path.exists(path):
         return pd.read_csv(path, index_col=0)
     _, meta, _, df = read_process_files(new=False)

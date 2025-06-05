@@ -20,7 +20,7 @@ path = os.path.join(private, "clusters_properties")
 
 
 def get_clusters_names_dict(abx, treat, exp_type, space=50):
-    file = pd.read_csv(rf"./Private/clusters_properties/{exp_type}/top_correlated_GO_terms_{abx}_{treat}.tsv", sep="\t")
+    file = pd.read_csv(os.path.join("Private", "clusters_properties", rf"top_correlated_GO_terms_{abx}_{treat}.tsv"), sep="\t")
     # create a dictionary from column GO term to name
     clusters_names_dict = dict(zip(file['GO term'], file['name']))
     clusters_names_dict = {key: value.split(":")[1] for key, value in clusters_names_dict.items()}
@@ -46,7 +46,7 @@ def get_median_from_df(data, go_cluster, mice, temp, genes):
 
 def prepare_data(anti, condition, exp_type, meta_data, treat):
     temp = pd.DataFrame()
-    df = pd.read_csv(f'./Private/clusters_properties/{exp_type}/top_correlated_GO_terms_{anti}_{treat}.tsv',
+    df = pd.read_csv(os.path.join("Private", "clusters_properties", f'{exp_type}/top_correlated_GO_terms_{anti}_{treat}.tsv'),
                      sep="\t")
     abx = meta_data[(meta_data['Drug'] == anti) & (meta_data[condition] == treat)]
     pbs = meta_data[(meta_data['Drug'] == 'PBS') & (meta_data[condition] == treat)]
@@ -74,7 +74,7 @@ def plot_clusters_separately(df, raw, abx_mice, pbs_mice, title, show=True, save
         suppress = "enhanced" if row["enhanced?"] == True else "suppressed"
         plt.title(f"{title}{row['GO term']} {row['name']} {suppress}")
         if save:
-            plt.savefig(f"./Private/{row['Antibiotics']}_{row['Condition']}_GO_{row['GO term'][3:]}_{suppress}.png")
+            plt.savefig(os.path.join("Private", f"{row['Antibiotics']}_{row['Condition']}_GO_{row['GO term'][3:]}_{suppress}.png"))
         if show:
             plt.show()
 
@@ -126,12 +126,12 @@ def plot_median_all_conditions(meta_data, raw_data, antibiotics, treatments, con
     # decrease all axis labels size
     plt.rc('xtick', labelsize=labelsize)
     # plt.title(" ")
-    plt.savefig(private + fr"/analysis/{exp_type}/{exp_type}{run_type} medians_of_all.png", bbox_inches='tight')
+    plt.savefig(private + fr"/{exp_type}{run_type} medians_of_all.png", bbox_inches='tight')
     plt.show()
     plt.close()
 
     # save GO_number to a csv file
-    GO_number.to_csv(private + fr"/analysis/{exp_type}/{exp_type}{run_type} GO_number.csv")
+    GO_number.to_csv(private + fr"/{exp_type}{run_type} GO_number.csv")
 
 
 def all_path(x):
@@ -185,11 +185,11 @@ def run_prep(is_gf, condition, median=False, clock_genes=False, get_categories=F
         data = data.loc[genes]
     mice_type = "GF" if is_gf else "SPF"
     # if folder ./Private/{mice_type.upper()} doesn't exist, create it
-    if not os.path.exists(f"./Private/{mice_type.upper()}"):
-        os.makedirs(f"./Private/{mice_type.upper()}")
-    data.to_csv(f"./Private/{mice_type.upper()}/{mice_type} data.txt", sep='\t')
+    if not os.path.exists(os.path.join("Private", mice_type.upper())):
+        os.makedirs(os.path.join("Private", mice_type.upper()))
+    data.to_csv(os.path.join("Private", mice_type.upper(), f"{mice_type} data.txt"), sep='\t')
     # save data.index to file and ignore the index of the line
-    pd.Series(data.index).to_csv(f"./Private/{mice_type.upper()}/annot_data.txt",
+    pd.Series(data.index).to_csv(os.path.join("Private", mice_type.upper(), "annot_data.txt"),
                                  sep='\t', index=False)
     return data, meta, data.index, {}
 
@@ -308,7 +308,7 @@ def collect_medians(condition, data, exp_type, meta_data, plot_intersection):
     all_clusters = {}
     for anti in antibiotics:
         for t in time_hr:
-            df = pd.read_csv(f'./Private/clusters_properties/{exp_type}/top_correlated_GO_terms_{anti}_{t}.tsv',
+            df = pd.read_csv(os.path.join("Private", "clusters_properties", exp_type, f"top_correlated_GO_terms_{anti}_{t}.tsv"),
                              sep="\t")
             clusters = df[(df["better than random correlation"] == "True")  # & (df["\"distance\""] < 0.5)]
                           & (df["better than parent"] == True) & df["relative size"] >= 0.5]
@@ -484,7 +484,7 @@ def show_intersection(all_clusters, exp_type):
     print(set(all_clusters["Time:5"]).intersection(set(all_clusters["Time:17"])))
     venn(all_clusters)
     plt.title(f"{exp_type.upper()} intersections")
-    plt.savefig(private + f"analysis/TP {exp_type} intersection.png")
+    plt.savefig(private + f"TP {exp_type} intersection.png")
     plt.show()
 
 
@@ -493,7 +493,7 @@ def plot_clock_genes(circadian_clock_genes, condition, data, exp_type, meta_data
     for anti in antibiotics:
         clusters[anti] = {}
         for t in time_hr:
-            df = pd.read_csv(f'./Private/clusters_properties/{exp_type}/top_correlated_GO_terms_{anti}_{t}.tsv',
+            df = pd.read_csv(os.path.join("Private", "clusters_properties", exp_type, f'top_correlated_GO_terms_{anti}_{t}.tsv'),
                              sep="\t")
             # iterate over rows and check if any of genes are there:
             # df['clock'] = df.apply(
@@ -539,7 +539,7 @@ def plot_clock_genes(circadian_clock_genes, condition, data, exp_type, meta_data
     plt.xlabel('ZT')
     z_score_label = ", z-score by PBS" if z_score else ""
     plt.title(f"{exp_type.upper()} Clock genes log(1+X) expression{z_score_label}")
-    plt.savefig(f"./Private/analysis/{exp_type}/{exp_type} {'z-score' if z_score else ''} clock_genes.png",
+    plt.savefig(os.path.join("Private", "analysis", exp_type, f'{exp_type} {'z-score' if z_score else ''} clock_genes.png'),
                 bbox_inches="tight")
     plt.show()
 
@@ -618,13 +618,13 @@ def statistical_analysis(j, k, row, time_hr):
 
 def get_clusters():
     go_dict = {}
-    all_spf = pd.read_csv("./Private/clusters_properties/spf/top_correlated_GO_terms.tsv", sep="\t")
+    all_spf = pd.read_csv(os.path.join("Private", "clusters_properties", "spf", f"top_correlated_GO_terms.tsv"), sep="\t")
     # iterate over all rows:
     for i, row_spf in all_spf.iterrows():
         go = row_spf["GO term"].split('_')[0]
         if go not in go_dict:
             go_dict[go] = row_spf["name"]
-    all_gf = pd.read_csv("./Private/clusters_properties/gf/top_correlated_GO_terms.tsv", sep="\t")
+    all_gf = pd.read_csv(os.path.join("Private", "clusters_properties", "gf", f"top_correlated_GO_terms.tsv"), sep="\t")
     for i, row_gf in all_gf.iterrows():
         go = row_gf["GO term"].split('_')[0]
         if go not in go_dict:
@@ -637,12 +637,12 @@ def find_all_cycles():
         loc = 1 if mice_type == "SPF" else 2
         for anti in ["PBS", "Vanco"]:
             print(f"Starting {mice_type} {anti}")
-            if os.path.exists(f"./Private/{mice_type.upper()}/{mice_type} cycles {anti} results.txt"):
+            if os.path.exists(os.path.join("Private", mice_type.upper(), f"{mice_type} cycles {anti} results.txt")):
                 print(f"Results for {mice_type} {anti} already exist, skipping...")
                 continue
             # elif private/f"{mice_type.upper()} folder does not exist, create it
-            if not os.path.exists(f"./Private/{mice_type.upper()}"):
-                os.makedirs(f"./Private/{mice_type.upper()}")
+            if not os.path.exists(os.path.join("Private", mice_type.upper())):
+                os.makedirs(os.path.join("Private", mice_type.upper()))
             data = pd.read_csv(f"./Private/{mice_type.upper()}/{mice_type} data {anti}.txt", sep="\t")
             other_anti = "Vanco" if anti == "PBS" else "PBS"
             other_data = pd.read_csv(f"./Private/{mice_type.upper()}/{mice_type} data {other_anti}.txt", sep="\t")

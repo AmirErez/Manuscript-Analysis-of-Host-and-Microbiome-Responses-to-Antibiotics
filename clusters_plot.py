@@ -37,8 +37,7 @@ def plot_correlation(df, title, x_name, y_name, folder=""):
     plt.ylabel(y_name)
     x_name = x_name.strip("\"")
     y_name = y_name.strip("\"")
-    plt.savefig(
-        f".\\Private\\{folder}{title}_{x_name}_{y_name}.png")
+    plt.savefig(os.path.join("Private", f"{folder}{title}_{x_name}_{y_name}.png"))
     plt.show()
     plt.close()
 
@@ -79,7 +78,7 @@ def get_colors_dictionary(columns):
     # import matplotlib._color_data as mcd
     # colors = list(mcd.XKCD_COLORS.values())[::40]
     # if colors_dict.txt exist, return it
-    colors_file_path = ".\\Private\\colors_dict.txt"
+    colors_file_path = os.path.join("Private", "colors_dict.txt")
 
     if os.path.exists(colors_file_path):
         # if False:
