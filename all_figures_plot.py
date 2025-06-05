@@ -568,7 +568,7 @@ def plot_composition(data, loc, thresh, colors, level, labels, qiime=True):
     set_plot_defaults()
     plt.savefig(os.path.join("Private", f"compositional_microbiome_population_{loc}_{thresh}_same_labels_all{level}.png"),
                 format='png', dpi=300, bbox_inches='tight')
-    plt.show()
+    # plt.show()
     plt.close()
     return eff_num
 
@@ -600,7 +600,8 @@ def plot_effective_number_heatmap(eff_num, loc, thresh, drugs, treats, maximal, 
     # increase font size of axis labels and title
     # plt.rc('font', size=16)
     plt.savefig(os.path.join("Private", f"effective number of {level}_{loc}_{thresh}.png"))
-    plt.show()
+    # plt.show()
+    plt.close()
 
 
 def get_colors_dictionary_bact(columns):
@@ -834,7 +835,8 @@ def pcoa(matrix, metadata_df, title, color_group, correction=None, days=None, ad
     # ax.legend(loc='upper left', bbox_to_anchor=(1, 1))
     plt.tight_layout()
     plt.savefig(f"./Private/{title}_pcoa{addition}.png", dpi=300)
-    plt.show()
+    # plt.show()
+    plt.close()
 
 
 def geometric_mean(x):
@@ -1150,7 +1152,8 @@ def plot_correlation_gsea(gsea, our):
     plt.tight_layout(rect=[0, 0, 1, 0.95])
     set_plot_defaults()
     plt.savefig(private + "/correlation_gsea_our.png")
-    plt.show()
+    # plt.show()
+    plt.close()
 
 
 def add_significance_indicators(ax, x, observed_values, p_values, y_offset=0.005):
@@ -1455,7 +1458,7 @@ def plot_categories(antibiotics, treatments, exp_type, extra=False, loc='lower c
     curr_path = os.path.join(".", "Private")
     plt.savefig(os.path.join(curr_path, f"{exp_type[1:]} categories.png"), bbox_inches='tight', dpi=600)
     plt.savefig(os.path.join(curr_path, f"{exp_type[1:]} categories.svg"), bbox_inches='tight', dpi=600)
-    plt.show()
+    # plt.show()
     plt.close()
 
     # Create a separate figure just for the legend
@@ -1467,8 +1470,8 @@ def plot_categories(antibiotics, treatments, exp_type, extra=False, loc='lower c
     legend = ax.legend(handles, labels, loc='center', fontsize=size)
     # Show the legend-only figure
     plt.savefig(os.path.join(curr_path, f"{exp_type[1:]} categories legend.svg"), bbox_inches='tight')
-    plt.show()
-
+    # plt.show()
+    plt.close()
     suppressed = plot_enrichment(antibiotics, treatments, exp_type, counts_dict_suppressed, orig_labels,
                                  f"suppressed {'GSEA' if gsea else ''}")
     enhanced = plot_enrichment(antibiotics, treatments, exp_type, counts_dict_enhanced, orig_labels,
@@ -1559,7 +1562,7 @@ def plot_enrichment(antibiotics, treatments, param, dict, categories, title):
     # plt.tight_layout()
 
     plt.savefig(os.path.join(private, f"enrichment {title}.png"), bbox_inches='tight')
-    plt.show()
+    # plt.show()
     plt.close()
     return df
 
@@ -1679,7 +1682,8 @@ def plot_significant_genes_number(meta, raw, antibiotics, treatments, param, con
     # Use Pillow to save as TIFF
     with Image.open(buf) as img:
         img.save(os.path.join(private, "genes stats.tiff"), format='TIFF')
-    plt.show()
+    # plt.show()
+    plt.close()
 
 
 def read_process_files(new=False, filter_value=0.55, merge_big_abx=True, remove_mitochondrial=True, gene_name=False):
@@ -2004,7 +2008,7 @@ def plot_multiabx_scatter(param, significant_genes, x, y):
     set_plot_defaults()
     # plt.title("Number of significant genes vs number of significant GO terms")
     plt.savefig(private + f"/analysis/{param}/{x}_vs_{y}.png")
-    plt.show()
+    # plt.show()
     plt.close()
 
 

@@ -76,8 +76,8 @@ def plot_clusters_separately(df, raw, abx_mice, pbs_mice, title, show=True, save
         if save:
             plt.savefig(os.path.join("Private", f"{row['Antibiotics']}_{row['Condition']}_GO_{row['GO term'][3:]}_{suppress}.png"))
         if show:
-            plt.show()
-
+            # plt.show()
+            plt.close()
 
 def plot_median_all_conditions(meta_data, raw_data, antibiotics, treatments, condition, exp_type, run_type="",
                                labelsize=12, regular=True, cols_factor=6.0, rows_factor=5.0):
@@ -127,7 +127,7 @@ def plot_median_all_conditions(meta_data, raw_data, antibiotics, treatments, con
     plt.rc('xtick', labelsize=labelsize)
     # plt.title(" ")
     plt.savefig(private + fr"/{exp_type}{run_type} medians_of_all.png", bbox_inches='tight')
-    plt.show()
+    # plt.show()
     plt.close()
 
     # save GO_number to a csv file
@@ -417,7 +417,7 @@ def plot_genes(gf_data, spf_data, filter_type, go_dict, spf_all, first="GF", sec
             plt.savefig(
                 f"../../periodicity detection/results/{filter_type}/{first} {filter_type} {gene_name.replace(':', '_')}.png")
         # f"../../periodicity detection/JTK/results/{filter_type}/{first} {filter_type} {row_gf.name[3:]}.png")
-        plt.show()
+        # plt.show()
         plt.close()
 
         # Create a new row as a DataFrame
@@ -485,7 +485,8 @@ def show_intersection(all_clusters, exp_type):
     venn(all_clusters)
     plt.title(f"{exp_type.upper()} intersections")
     plt.savefig(private + f"TP {exp_type} intersection.png")
-    plt.show()
+    # plt.show()
+    plt.close()
 
 
 def plot_clock_genes(circadian_clock_genes, condition, data, exp_type, meta_data, z_score=False):
@@ -541,7 +542,8 @@ def plot_clock_genes(circadian_clock_genes, condition, data, exp_type, meta_data
     plt.title(f"{exp_type.upper()} Clock genes log(1+X) expression{z_score_label}")
     plt.savefig(os.path.join("Private", "analysis", exp_type, f'{exp_type} {'z-score' if z_score else ''} clock_genes.png'),
                 bbox_inches="tight")
-    plt.show()
+    # plt.show()
+    plt.close()
 
 
 def find_cycles(df, other_df, loc):
@@ -1036,7 +1038,7 @@ def plot_genes_heatmap(combine, genes, mice_type, genes_type, abx, pbs, classifi
     plt.ylabel("Gene")
     plt.title(f"{mice_type} {genes_type} genes")
     plt.savefig(f"./Private/{mice_type}_{genes_type}_heatmap_{type_}.png", bbox_inches="tight")
-    plt.show()
+    # plt.show()
     plt.close()
 
 
@@ -1508,7 +1510,7 @@ def time_intersections(all_dict):
             # plt.tight_layout()
             plt.savefig(f"./Private/{direction}{time * 6 - 1}_venn.png", dpi=300)
             plt.savefig(f"./Private/{direction}{time * 6 - 1}_venn.svg", dpi=300)
-            plt.show()
+            # plt.show()
             plt.close()
 
     return results

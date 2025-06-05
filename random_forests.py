@@ -70,7 +70,7 @@ def plot_confusion_matrix(addition="", factor=1, path=os.path.join("Private"), o
     ax.set_ylabel("True Category", fontsize=25)
     plt.tight_layout()
     plt.savefig(path + f"/confusion_matrix{addition}{'_random' if random else ''}.png")
-    plt.show()
+    # plt.show()
     plt.close()
 
 
@@ -469,8 +469,8 @@ def plot_cumsum(feature_importance, title):
     plt.savefig(path=os.path.join("Private", "AbxRandomForest", "feature_importance_cum-sum{title}.png"))
 
     # Show the plot
-    plt.show()
-
+    # plt.show()
+    plt.close()
 
 def analyze_results(data, metadata, title, background, treat, sizes=(100, 200, 400), abx=None, random=False):
     samples_order = []

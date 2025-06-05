@@ -322,11 +322,11 @@ def get_random_corr(size, df, plot=False, times=10_000):
         ax.text(0.95, 0.95, f'Mean: {mean:.4f}\nStd: {std:.4f}',
                 transform=ax.transAxes, verticalalignment='top',
                 horizontalalignment='right', bbox=dict(boxstyle='round', facecolor='white', alpha=0.7))
-        plt.title(f"size {len(genes)}")
+        # plt.title(f"size {len(genes)}")
 
         # Show the plot
-        plt.show()
-
+        # plt.show()
+        plt.close()
     # Return the mean and standard deviation of the computed distribution
     # return random_dist.mean(), random_dist.std(), random_dist
     return random_corr.mean(), random_corr.std(), ecdf_data
@@ -1219,7 +1219,8 @@ def check_importance_missing_genes(missing_genes, transcriptome_df, meta):
     sns.heatmap(significant, annot=True, ax=ax[1], xticklabels=treatments, yticklabels=antibiotics)
     ax[1].set_title("significant genes")
     plt.savefig(f"./Private/missing_genes.png")
-    plt.show()
+    # plt.show()
+    plt.close()
     print(f"significant genes: {significant}")
     print(f"not significant genes: {not_significant}")
     return significant_set, not_significant_set
@@ -1237,8 +1238,8 @@ def plot_histogram_counts(df, type_of):
     plt.ylabel('Percentage (%)')
     plt.title(f'Histogram of Transcript Biotype Counts for {type_of}')
     plt.savefig(f"./Private/Genes/{type_of}_transcript_biotype.png", format='png', dpi=300, bbox_inches='tight')
-    plt.show()
-
+    # plt.show()
+    plt.close()
 
 def get_go_to_ensmusg(bio_path="http://www.ensembl.org/biomart", cache_file="go_to_ensmusg.pkl"):
     import pickle

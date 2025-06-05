@@ -38,7 +38,7 @@ def plot_correlation(df, title, x_name, y_name, folder=""):
     x_name = x_name.strip("\"")
     y_name = y_name.strip("\"")
     plt.savefig(os.path.join("Private", f"{folder}{title}_{x_name}_{y_name}.png"))
-    plt.show()
+    # plt.show()
     plt.close()
 
 
@@ -189,7 +189,7 @@ def plot_categories(antibiotics, treatments, exp_type, extra=False, loc='lower c
     curr_path = os.path.join(".", "Private", "analysis")
     plt.savefig(os.path.join(curr_path, exp_type[1:], f"{exp_type[1:]} categories.png"), bbox_inches='tight', dpi=600)
     plt.savefig(os.path.join(curr_path, exp_type[1:], f"{exp_type[1:]} categories.svg"), bbox_inches='tight', dpi=600)
-    plt.show()
+    # plt.show()
     plt.close()
 
     # Create a separate figure just for the legend
@@ -201,8 +201,8 @@ def plot_categories(antibiotics, treatments, exp_type, extra=False, loc='lower c
     legend = ax.legend(handles, labels, loc='center', fontsize=size)
     # Show the legend-only figure
     plt.savefig(os.path.join(curr_path, exp_type[1:], f"{exp_type[1:]} categories legend.svg"), bbox_inches='tight')
-    plt.show()
-
+    # plt.show()
+    plt.close()
     suppressed = plot_enrichment(antibiotics, treatments, exp_type, counts_dict_suppressed, orig_labels, "suppressed")
     enhanced = plot_enrichment(antibiotics, treatments, exp_type, counts_dict_enhanced, orig_labels, "enhanced")
 
@@ -291,7 +291,7 @@ def plot_enrichment(antibiotics, treatments, param, dict, categories, title):
     # plt.tight_layout()
 
     plt.savefig(os.path.join(private, "analysis", param[1:], f"enrichment {title}.png"), bbox_inches='tight')
-    plt.show()
+    # plt.show()
     plt.close()
     # save df to csv
     df.to_csv(os.path.join(private, "analysis", param[1:], f"enrichment {param[9:]} {title}.csv"))
@@ -314,7 +314,8 @@ def plot_categories_altogether(categories, curr_path, exp_type, title):
     # make all fonts and sizes the same
     plt.rc('font', size=20)
     plt.savefig(curr_path + f"{exp_type}\\{exp_type} categories {title} heatmap.png", bbox_inches='tight')
-    plt.show()
+    # plt.show()
+    plt.close()
 
 
 def get_category_size(term, go):
@@ -355,7 +356,8 @@ def plot_enrichment_heatmap(enrichment, curr_path, antibiotics, treatments, exp_
     # make all fonts and sizes the same
     plt.rc('font', size=20)
     plt.savefig(curr_path + f"{exp_type}\\{exp_type} enrichment.png", bbox_inches='tight')
-    plt.show()
+    # plt.show()
+    plt.close()
 
 
 def get_selected_df(abx, treat, exp_type, regular=True, fdr=True):
@@ -495,7 +497,8 @@ def plot_tsne(data, condition, pca=True, perplexity=7, pca_components=50, title=
     plt.title(f"tSNE {f'with pca to {pca_components}' if pca else ''}, perplexity={perplexity} ")
     plt.savefig(
         private + "dimension reduction/tsne/" + f"PCA of raw data {title} perplexity={perplexity}, pca to {pca_components}.png")
-    plt.show()
+    # plt.show()
+    plt.close()
     data = data.drop(['tsne-2d-one', 'tsne-2d-two'], axis=1)
 
     return data
@@ -527,7 +530,8 @@ def intersection(antibiotics, conditions, exp_type):
         venn(genes_times)
         plt.title(f"{exp_type.upper()} intersections")
         plt.savefig(os.path.join(private, "analysis", f"{exp_type} intersection.png"))
-        plt.show()
+        # plt.show()
+        plt.close()
 
 
 def plot_ven5(data, title, dir):
@@ -535,8 +539,8 @@ def plot_ven5(data, title, dir):
     venn(data)
     plt.title(f"Venn Diagram for all antibiotics {title}")
     plt.savefig(private + f"analysis/{dir}/Venn5{title}.png", bbox_inches='tight')
-    plt.show()
-    plt.show()
+    # plt.show()
+    plt.close()
 
 
 def get_unique_random_genes(index, data, times=100_000):
@@ -663,7 +667,8 @@ def plot_significant_genes_number(meta, raw, antibiotics, treatments, param, con
     # Use Pillow to save as TIFF
     with Image.open(buf) as img:
         img.save(os.path.join(private, "analysis", param, "genes stats.tiff"), format='TIFF')
-    plt.show()
+    # plt.show()
+    plt.close()
 
 
 def random_intersection(df, labels, genes, param, treat, abx, repeat=100_000):
@@ -695,7 +700,8 @@ def random_intersection(df, labels, genes, param, treat, abx, repeat=100_000):
     venn3(means, set_labels=labels)
     plt.title(f"Venn Diagram of average random size for {treat}; {', '.join(labels)}")
     plt.savefig(private + f"analysis/{param}/ven/Venn3_random_mean_{treat}_{abx}.png", bbox_inches='tight')
-    plt.show()
+    # plt.show()
+    plt.close()
     stds = [np.sqrt(amp_mix_only.std() ** 2 + abx_amp_only.std() ** 2 + abx_amp_mix.std() ** 2),
             np.sqrt(amp_mix_only.std() ** 2 + abx_mix_only.std() ** 2 + abx_amp_mix.std() ** 2),
             np.std(amp_mix_only),
@@ -706,7 +712,8 @@ def random_intersection(df, labels, genes, param, treat, abx, repeat=100_000):
     venn3(stds, set_labels=labels)
     plt.title(f"Venn Diagram of std random size for {treat}; {', '.join(labels)}")
     plt.savefig(private + f"analysis/{param}/ven/Venn3_random_std_{treat}_{abx}.png", bbox_inches='tight')
-    plt.show()
+    # plt.show()
+    plt.close()
 
 
 def plot_kde(x, y, shape, legend, jitter=0.01, point_size=20):
@@ -873,8 +880,10 @@ def compare_mix_single(mix, no_mix, param, treat, col, xlabel, ylabel, title, to
 
 def get_selected_df_plot(abx, mix, param, treat):
     # read the clusters data for abx_treat and mix_treat
-    df = pd.read_csv(os.path.join("data", "clusters_properties", f"top_correlated_GO_terms_{abx}_{treat}.tsv"), sep="\t")
-    df_mix = pd.read_csv(os.path.join("data", "clusters_properties", f"top_correlated_GO_terms_{mix}_{treat}.tsv"), sep="\t")
+    df = pd.read_csv(os.path.join("data", "clusters_properties", f"top_correlated_GO_terms_{abx}_{treat}.tsv"),
+                     sep="\t")
+    df_mix = pd.read_csv(os.path.join("data", "clusters_properties", f"top_correlated_GO_terms_{mix}_{treat}.tsv"),
+                         sep="\t")
     # get the selected clusters for abx_treat
     # selected = df[(df['treat-test p-value'] <= 0.05) & (df['size'] >= 2) & (
     #         df['p-value distance'] <= 0.05)]
@@ -1039,7 +1048,7 @@ def plot_clusters_heatmap(all_samples, df, raw, abx, normalization):
         plt.title(f"{row['GO term']}\n{row['name']}")
         plt.tight_layout()  # Adjust the layout to prevent cutting off labels
         plt.savefig(f"./Private/selected_clusters/{abx}_{row['GO term'].replace(':', '_')}.png")
-        plt.show()
+        # plt.show()
         plt.close()
 
 
@@ -1296,7 +1305,8 @@ def plot_correlation_gsea(gsea, our):
     plt.tight_layout(rect=[0, 0, 1, 0.95])
     plt.savefig(private + "/analysis/correlation_gsea_our.png")
     plt.savefig(private + "/analysis/correlation_gsea_our.svg")
-    plt.show()
+    # plt.show()
+    plt.close()
 
 
 def merge_results(path):

@@ -391,8 +391,8 @@ def compare_correlation_all():
             uncorrelated.loc[treat, abx] = len(
                 compores_results_spf[compores_results_spf[f"{column_names[1]}_p"] >= 0.05]) / len(compores_results_spf)
     plt.savefig(f"./Private/compores_response_ranking/intersection_distribution.png")
-    plt.show()
-
+    # plt.show()
+    plt.close()
     # Plot the fraction of genes that are significant and that have p>=0.05
     uncorrelated_filled = uncorrelated.fillna(0).T
     # sns.heatmap(uncorrelated_filled, cmap='coolwarm', cbar_kws={'label': 'Fraction of genes with p>=0.05'})
@@ -2066,7 +2066,7 @@ def plot_ip_po_distribution(log=True, threshold=0.05):
     plt.tight_layout()
     plt.subplots_adjust(wspace=0.3)  # Adjust the vertical space between subplots
     plt.savefig(f"./Private/compores_response_ranking/IP_PO_distribution{'_log' if log else ''}.png", dpi=600)
-    plt.show()
+    # plt.show()
     plt.close()
 
 
