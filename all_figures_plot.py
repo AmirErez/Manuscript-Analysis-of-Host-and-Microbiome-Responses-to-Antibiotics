@@ -383,7 +383,7 @@ def create_csv(level='taxon', impute=True, qiime=True, d0=False):
                 temp = temp[temp.columns[:-3]]
 
                 temp.to_csv(
-                    f"./private/CompoResGenes/{abx.capitalize()}-{treat if treat != "gavage" else "PO"}-{data_name}.tsv",
+                    f"./private/CompoResGenes/{abx.capitalize()}-{treat if treat != 'gavage' else 'PO'}-{data_name}.tsv",
                     sep="\t")
         if qiime:
             return
