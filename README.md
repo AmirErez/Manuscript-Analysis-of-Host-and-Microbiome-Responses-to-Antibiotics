@@ -32,6 +32,7 @@ Create a virtual environment and install dependencies (example using `venv` and 
 python -m venv env
 source env/bin/activate  # On Windows use `env\Scripts\activate`
 pip install -r requirements.txt
+python init_project.py
 ```
 
 
