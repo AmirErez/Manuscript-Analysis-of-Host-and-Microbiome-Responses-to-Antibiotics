@@ -1335,7 +1335,7 @@ def get_selected_gsea(abx, treat, go):
     go_dict = create_go_term_dict(go)
     # iterate over folders in folder .\Private\GSEA and find the one starts with abx-treat
     selected = pd.DataFrame()
-    for folder in os.listdir(os.path.join(private, "GSEA")):
+    for folder in os.listdir(os.path.join("Data", "GSEA")):
         if folder.startswith(f"{abx}{treat}"):
             # read the csv file that starts with gsea_report_for_1
             for file in os.listdir(os.path.join(private, "GSEA", folder)):
