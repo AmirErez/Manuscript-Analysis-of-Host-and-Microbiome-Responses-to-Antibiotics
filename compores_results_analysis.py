@@ -54,12 +54,11 @@ def prepare_genes_to_compores(threshold=0.05, by_genes=False, folder=None):
     transcriptome, metadata = transform_data(transcriptome, metadata, "RASflow", skip=True)
     metadata["Category"] = metadata['Drug'] + "_" + metadata['Treatment']
     # if f"./Private/CompoResGenes/{folder}" does not exist, create it
-    curr_path = os.path.join("Private", "CompoResGenes", folder)
-    if folder and os.path.exists(curr_path) is False:
-        os.makedirs(curr_path)
+    if folder and os.path.exists(f"./Private/CompoResGenes/{folder}") is False:
+        os.makedirs(f"./Private/CompoResGenes/{folder}")
         # create folder "response" and "metadata"
-        os.makedirs(os.path.join(curr_path, "response"), exist_ok=True)
-        os.makedirs(os.path.join(curr_path, "metadata"), exist_ok=True)
+        os.makedirs(f"./Private/CompoResGenes/{folder}/response", exist_ok=True)
+        os.makedirs(f"./Private/CompoResGenes/{folder}/metadata", exist_ok=True)
     for treat in treatments:
         for abx in antibiotics:
             samples = metadata[
@@ -75,16 +74,15 @@ def prepare_genes_to_compores(threshold=0.05, by_genes=False, folder=None):
             curr_genes = curr.T[genes]
             # curr_genes.to_csv(f"./Private/feeding/{abx}-{treat}.tsv", sep="\t")
             addition = f"{folder}/response/" if folder else ""
-            compo_path = os.path.join("Private", "CompoResGenes")
-            curr_genes.to_csv(os.path.join(compo_path + f"{addition}{abx}-{treat}.tsv"), sep="\t")
+            curr_genes.to_csv(f"./Private/CompoResGenes/{addition}{abx}-{treat}.tsv", sep="\t")
             print(f"Number of significant genes for {abx}-{treat}: {len(genes)}")
             save_meta = samples.set_index("ID")['Category']
             addition = f"{folder}/metadata/" if folder else ""
-            save_meta.to_csv(os.path.join(compo_path + f"{addition}{abx}-{treat}-metadata.tsv"), sep="\t")
+            save_meta.to_csv(f"./Private/CompoResGenes/{addition}{abx}-{treat}-metadata.tsv", sep="\t")
 
 
 def calc_multi_abx_statistics(ttest=True):
-    path = os.path.join("Private", "analysis", "Diff_abxRASflow", "all_stats_multi_abx.csv")
+    path = "./Private/analysis/all_stats_multi_abx.csv"
     if os.path.exists(path):
         return pd.read_csv(path, index_col=0)
     _, meta, _, df = read_process_files(new=False)
@@ -143,6 +141,7 @@ def show_case_correlated_genes():
     """
     ensmus_to_gene = get_ensmus_dict()
     path = r"D:\Master heavy files\CompoResAllConditions"
+    # path = r"C:\Users\Yehonatan\Desktop\Master\Git\DEP_Compare16s\Private\compores_response_ranking"
     multi_abx = calc_multi_abx_statistics()
     all_results = pd.DataFrame()
     for j, treat in enumerate(treatments):
@@ -206,7 +205,7 @@ def prepare_clock_genes_to_compores(genes):
 
 
 def calc_gf_statistics(ttest=True):
-    path = "./Private/Lilach gf/new_gf_stats_CompoRes_comparison.csv"
+    path = "./Private/analysis/new_gf_stats_CompoRes_comparison.csv"
     if os.path.exists(path):
         return pd.read_csv(path, index_col=0)
     df = pd.read_csv("../Data/Lilach GF/genes_norm_named.csv")
@@ -242,7 +241,7 @@ def calc_gf_statistics(ttest=True):
     # rename "sample" to "ID"
     meta = meta.rename(columns={"sample": "ID", "group": "Drug"})
     meta["Treatment"] = "GF"
-    df, meta = transform_data(df, meta, "_gf", skip=False, gf=True)
+    df, meta = transform_data_gf(df, meta, "_gf", skip=False, gf=True)
     # return "ID" to "sample"
     meta = meta.rename(columns={"ID": "sample", "Drug": "group"})
     # drop Treatment column
@@ -282,6 +281,7 @@ def compare_correlation_all():
     axis = set_figure(treatments, antibiotics)
     uncorrelated = pd.DataFrame(columns=antibiotics, index=treatments)
     path = r"D:\Master heavy files\CompoResAllConditions"
+    # path = r"C:\Users\Yehonatan\Desktop\Master\Git\DEP_Compare16s\Private\compores_response_ranking"
 
     data_list = []
     from scipy.stats import ttest_ind
@@ -359,6 +359,8 @@ def compare_correlation_all():
 
     for j, treat in enumerate(treatments):
         for i, abx in enumerate(antibiotics):
+            # if abx == "Met":
+            #     continue  # TODO: TEMP
             curr_axis = get_to_axis(axis, i, j, len(treatments), len(antibiotics))
             curr_axis.set_title(f"{abx}, {treat}")
             column_names = ['gene', 'correlation', 'rmse']
@@ -391,8 +393,8 @@ def compare_correlation_all():
             uncorrelated.loc[treat, abx] = len(
                 compores_results_spf[compores_results_spf[f"{column_names[1]}_p"] >= 0.05]) / len(compores_results_spf)
     plt.savefig(f"./Private/compores_response_ranking/intersection_distribution.png")
-    # plt.show()
-    plt.close()
+    plt.show()
+
     # Plot the fraction of genes that are significant and that have p>=0.05
     uncorrelated_filled = uncorrelated.fillna(0).T
     # sns.heatmap(uncorrelated_filled, cmap='coolwarm', cbar_kws={'label': 'Fraction of genes with p>=0.05'})
@@ -494,20 +496,27 @@ def compare_correlation_gf(abx, treat, threshold=0.05):
     ensmus_to_gene = temp.set_index('gene_id')['gene_name'].to_dict()
 
     column_names = ['gene', 'correlation', 'rmse']
-    path = fr"D:\Master heavy files\CompoResAllConditions\bootstrap\50"
+    path = fr"/Users/yonchlevin/Desktop/ErezLab/MouseAbxBel/CompoResults"
+    # path = fr"D:\Master heavy files\CompoResAllConditions\119"
+    # path = fr"D:\Master heavy files\CompoResAllConditions\bootstrap\50"
+    # path = r"C:\Users\Yehonatan\Desktop\Master\Git\DEP_Compare16s\Private\compores_response_ranking"
     # if False:
-    res_path = f"./Private/CompoResVerification/{abx}-{treat}-res{'0_05' if threshold == 0.05 else ''}.tsv"
+    res_path = f"./Private/CompoResultsPlots/{abx}-{treat}-res{'0_05' if threshold == 0.05 else ''}.tsv"
     if False:
-        # if os.path.exists(res_path):
+    # if os.path.exists(res_path):
         compores_results_spf = pd.read_csv(res_path, sep="\t")
     else:
-        rms = read_and_print_pkl(path + fr'\{abx}-{treat}-feces\pairs\mean_rmse.pkl')
+        rms = read_and_print_pkl(path + fr'/{abx}-{treat}-feces/pairs/mean_rmse.pkl')
+        # rms = read_and_print_pkl(path + fr'\{abx}-{treat}-feces\pairs\mean_rmse.pkl')
         # path+fr'\{abx}-{treat}-feces\mean_log_p_value.pkl')
         rms = rms[f"{abx}-{treat}-feces"]
-        data = read_and_print_pkl(path + fr'\{abx}-{treat}-feces\pairs\mean_log_p_value.pkl')
+        # data = read_and_print_pkl(path + fr'\{abx}-{treat}-feces\pairs\bootstrap_mean_log_p_value.pkl')
+        # data = read_and_print_pkl(path + fr'\{abx}-{treat}-feces\pairs\mean_log_p_value.pkl')
+        data = read_and_print_pkl(path + fr'/{abx}-{treat}-feces/pairs/minus_mean_log_p_value.pkl')
         # path+fr'\{abx}-{treat}-feces\mean_log_p_value.pkl')
         data = data[f"{abx}-{treat}-feces"]
-        index = read_and_print_pkl(path + fr'\{abx}-{treat}-feces\pairs\response_index.pkl')
+        index = read_and_print_pkl(path + fr'/{abx}-{treat}-feces/pairs/response_index.pkl')
+        # index = read_and_print_pkl(path + fr'\{abx}-{treat}-feces\pairs\response_index.pkl')
         compores_results_spf = pd.DataFrame({column_names[0]: index, column_names[1]: data, column_names[2]: rms})
         # # keep only rows where the rmse is smaller than the quantile(0.25) rmse
         # compores_results_spf = compores_results_spf[compores_results_spf[column_names[2]] < compores_results_spf[
@@ -545,7 +554,7 @@ def compare_correlation_gf(abx, treat, threshold=0.05):
     # save this csv
     intersection_gf_spf = pd.DataFrame(intersection_gf_spf, columns=["genes_id"])
     intersection_gf_spf.to_csv(
-        f"./Private/CompoResVerification/{abx}-{treat}-intersection-GF{'0_05' if threshold == 0.05 else ''}.tsv",
+        f"./Private/CompoResultsPlots/{abx}-{treat}-intersection-GF{'0_05' if threshold == 0.05 else ''}.tsv",
         sep="\t",
         index=False)
 
@@ -560,7 +569,7 @@ def compare_correlation_gf(abx, treat, threshold=0.05):
     # save compores_results_spf_intersect to a csv
     to_save = compores_results_spf[compores_results_spf["genes_id"].isin(intersection_gf_spf["genes_id"])]
     to_save[["genes_id", "genes_name", "correlation_p"]].to_csv(
-        f"./Private/CompoResVerification/{abx}-{treat}-intersect-GF{'0_05' if threshold == 0.05 else ''}.tsv", sep="\t",
+        f"./Private/CompoResultsPlots/{abx}-{treat}-intersect-GF{'0_05' if threshold == 0.05 else ''}.tsv", sep="\t",
         index=False)
     return
     alpha = 0.3
@@ -812,6 +821,61 @@ def compare_correlation_gf(abx, treat, threshold=0.05):
 
     return intersection_gf_spf, gf, transcriptome, correlated_intersection, uncorrelated_intersection
 
+def transform_data_gf(data, metadata, run_type, skip=False, save=False, gf=False):
+    from ClusteringGO import impute_zeros, zscore_all_by_pbs
+
+    def zscore_all_by_pbs_gf(data_gf, metadata_gf):
+        pbs = metadata_gf[metadata_gf['Drug'] == "PBS"]
+        # get the pbs mice data
+        pbs_data = data_gf[pbs['ID']]
+        # calculate the mean and std of the pbs mice
+        pbs_mean = pbs_data.mean(axis=1)
+        pbs_std = pbs_data.std(axis=1)
+        # replace pbs_std 0 values by np.nanmin(pbs_std)
+        pbs_std[pbs_std == 0] = np.nanmin(pbs_std[pbs_std != 0])
+        data_gf[pbs['ID']] = data_gf[pbs['ID']].sub(pbs_mean, axis=0)
+        data_gf[pbs['ID']] = data_gf[pbs['ID']].div(pbs_std, axis=0)
+        abx = metadata_gf[metadata_gf['Drug'] == "Van"]
+        # normalize the data by the mean and std of the pbs mice: subtract pbs_mean from every row and divide by std
+        data_gf[abx['ID']] = data_gf[abx['ID']].sub(pbs_mean, axis=0)
+        data_gf[abx['ID']] = data_gf[abx['ID']].div(pbs_std, axis=0)
+        # return the normalized data
+        return data_gf
+    # replace all zeros with nan
+    data = data.replace(0, np.nan)
+    # # Remove V11 from data, and remove row ID==V11 from metadata
+    # data = data.drop('V11', axis=1)
+    # metadata = metadata.drop(metadata[metadata['ID'] == 'V11'].index)
+    if save:
+        folder_dir = f"../Data/MultiAbx-16s/MultiAbx-RPKM-RNAseq-B6/new normalization/"
+        df = pd.read_csv(folder_dir + "transcriptome_2023-09-17-genes_norm_named.tsv", sep="\t")
+        id_to_name = df.set_index('gene_id')['gene_name'].to_dict()
+        data['gene_original_name'] = data.index.map(id_to_name)
+
+        # data.to_csv("./Private/data process/no_v11.csv")
+        # metadata.to_csv("./Private/data process/metada.csv")
+        # # metadata.to_csv("./Private/data process/metada_no_v11.csv")
+        # data = data.drop('gene_original_name', axis=1)
+    data = impute_zeros(data, metadata, 'Treatment', run_type, skip_if_exist=skip)
+    if save:
+        data['gene_original_name'] = data.index.map(id_to_name)
+        data.to_csv("./Private/data process/imputed.csv")
+        # data.to_csv("./Private/data process/no_v11_imputed.csv")
+        data = data.drop('gene_original_name', axis=1)
+    data = np.log2(data)
+    if save:
+        data['gene_original_name'] = data.index.map(id_to_name)
+        data.to_csv("./Private/data process/imputed_log.csv")
+        # data.to_csv("./Private/data process/no_v11_imputed_log.csv")
+        data = data.drop('gene_original_name', axis=1)
+    # z-score by PBS
+    data = zscore_all_by_pbs(data, metadata) if not gf else zscore_all_by_pbs_gf(data, metadata)
+    if save:
+        data['gene_original_name'] = data.index.map(id_to_name)
+        data.to_csv("./Private/data process/imputed_log_zscore.csv")
+        # data.to_csv("./Private/data process/no_v11_imputed_log_zscore.csv")
+        data = data.drop('gene_original_name', axis=1)
+    return data, metadata
 
 def read_fmt(normalize=True):
     filename = f"./Private/YasminRandomForest/Yasmin_FMT_merged{'_normalized' if normalize else ''}_significance.tsv"
@@ -850,7 +914,7 @@ def read_fmt(normalize=True):
     # remove empty rows
     temp = temp.loc[~(temp == 0).all(axis=1)]
     # rename "sample" to "ID"
-    temp, metadata = transform_data(temp, metadata, "_fmt", skip=False, gf=True)
+    temp, metadata = transform_data_gf(temp, metadata, "_fmt", skip=False, gf=True)
 
     # merge temp with df based on index
     temp['p-value_fmt'] = temp.apply(lambda row: compute_p_value(row, abx_samples, pbs_samples), axis=1)
@@ -863,8 +927,11 @@ def read_fmt(normalize=True):
 
 
 def compare_correlation_fmt(abx="Van", treat="PO", vs_all=True, threshold=0.05):
-    path = fr"D:\Master heavy files\CompoResAllConditions\bootstrap\50"
+    path = fr"/Users/yonchlevin/Desktop/ErezLab/MouseAbxBel/CompoResults"
+    # path = fr"D:\Master heavy files\CompoResAllConditions\119"
+    # path = fr"D:\Master heavy files\CompoResAllConditions\bootstrap\50"
     # path = fr"D:\Master heavy files\CompoResAllConditions{'\\0_05' if threshold == 0.05 else '\\0_01'}"
+    # path = r"C:\Users\Yehonatan\Desktop\Master\Git\DEP_Compare16s\Private\compores_response_ranking"
     genome, metadata, partek, transcriptome = read_process_files(new=False)
     transcriptome, metadata = transform_data(transcriptome, metadata, "RASflow", skip=True)
 
@@ -872,9 +939,12 @@ def compare_correlation_fmt(abx="Van", treat="PO", vs_all=True, threshold=0.05):
     temp = pd.read_csv(folder_dir + "transcriptome_2023-09-17-genes_norm_named.tsv", sep="\t")
     ensmus_to_gene = temp.set_index('gene_id')['gene_name'].to_dict()
 
-    data = read_and_print_pkl(path + rf'\{abx}-{treat}-feces\pairs\mean_log_p_value.pkl')
+    data = read_and_print_pkl(path + rf'/{abx}-{treat}-feces/pairs/minus_mean_log_p_value.pkl')
+    # data = read_and_print_pkl(path + rf'\{abx}-{treat}-feces\pairs\mean_log_p_value.pkl')
+    # data = read_and_print_pkl(path + rf'\{abx}-{treat}-feces\pairs\bootstrap_mean_log_p_value.pkl')
     data = data[f"{abx}-{treat}-feces"]
-    index = read_and_print_pkl(path + rf'\{abx}-{treat}-feces\pairs\response_index.pkl')
+    index = read_and_print_pkl(path + rf'/{abx}-{treat}-feces/pairs/response_index.pkl')
+    # index = read_and_print_pkl(path + rf'\{abx}-{treat}-feces\pairs\response_index.pkl')
     column_names = ['gene', 'correlation']
     compores_results_spf = pd.DataFrame({column_names[0]: index, column_names[1]: data})
     compores_results_spf[f'{column_names[1]}_p'] = np.exp(-compores_results_spf[column_names[1]])
@@ -883,7 +953,7 @@ def compare_correlation_fmt(abx="Van", treat="PO", vs_all=True, threshold=0.05):
     compores_results_spf["genes_id"] = compores_results_spf["genes_name"].apply(lambda x: ensmus_to_gene[x])
 
     fmt = read_fmt()
-    fmt_genes = fmt[fmt["p-value_fmt"] < threshold].gene_name.to_list()
+    fmt_genes = fmt[fmt["p-value_fmt"] < threshold]["gene_name"].to_list()
     fmt_significant = fmt[fmt["p-value_fmt"] < threshold].set_index("gene_name")
     multiabx = calc_multi_abx_statistics()
     van = multiabx[[f"p-value_{abx}_{treat}", f"fold_change_{abx}_{treat}", f'enhanced_{abx}_{treat}']]
@@ -901,7 +971,7 @@ def compare_correlation_fmt(abx="Van", treat="PO", vs_all=True, threshold=0.05):
     # save this csv
     intersection_fmt_spf = pd.DataFrame(intersection_fmt_spf, columns=["genes_id"])
     intersection_fmt_spf.to_csv(
-        f"./Private/CompoResVerification/{abx}-{treat}-intersection-FMT{'0_05' if threshold == 0.05 else ''}.tsv",
+        f"./Private/CompoResultsPlots/{abx}-{treat}-intersection-FMT{'0_05' if threshold == 0.05 else ''}.tsv",
         sep="\t", index=False)
 
     # choose len(intersection) genes from the compores_results_spf that are not in intersection_gf_spf
@@ -915,7 +985,7 @@ def compare_correlation_fmt(abx="Van", treat="PO", vs_all=True, threshold=0.05):
     # save compores_results_spf_intersect to a csv
     to_save = compores_results_spf[compores_results_spf["genes_id"].isin(intersection_fmt_spf["genes_id"])]
     to_save[["genes_id", "genes_name", "correlation_p"]].to_csv(
-        f"./Private/CompoResVerification/{abx}-{treat}-intersect-FMT{'0_05' if threshold == 0.05 else ''}.tsv",
+        f"./Private/CompoResultsPlots/{abx}-{treat}-intersect-FMT{'0_05' if threshold == 0.05 else ''}.tsv",
         sep="\t", index=False)
     return
     bins = 20
@@ -1208,9 +1278,12 @@ def akiko_check():
     from typing import Set
     from anytree import PostOrderIter
     from goatools import obo_parser
-    save_path = "./Private/CompoResVerification/neo_viral.csv"
+    save_path = "./Private/compoResultsPlots/neo_viral.csv"
     if os.path.exists(save_path):
-        return set(pd.read_csv(save_path)["genes_id"])
+        lst = pd.read_csv(save_path)["gene"].to_list()
+        # remove nan
+        lst = [x for x in lst if pd.notna(x)]
+        return set(lst)
 
     go = obo_parser.GODag(get_go())
 
@@ -1481,7 +1554,7 @@ def compare_compores_all_antibiotics(genes, folder, threshold=False):
     color_map = {abx: unique_colors[i] for i, abx in enumerate(antibiotics)}
 
     adjust_font_sizes()
-    folder_path = fr"D:\Master heavy files\CompoResAllConditions{'0_05' if threshold else ''}"
+    folder_path = fr"D:\Master heavy files\CompoResAllConditions{r'/0_05' if threshold else ''}"
     # Create subplots
     n_treat = len(treatments)
     fig, axes = plt.subplots(nrows=1, ncols=n_treat, figsize=(10 * n_treat, 5), sharey=True)
@@ -1902,11 +1975,14 @@ def get_specific_value(gene, genes, specific_compores_results_spf):
 
 
 def get_compores_results(abx, path, treat):
-    data = read_and_print_pkl(path + rf'\{abx}-{treat}-feces\pairs\mean_log_p_value.pkl')
+    data = read_and_print_pkl(path + rf'/{abx}-{treat}-feces/pairs/minus_mean_log_p_value.pkl')
+    # data = read_and_print_pkl(path + rf'\{abx}-{treat}-feces\pairs\mean_log_p_value.pkl')
+    # data = read_and_print_pkl(path + rf'\{abx}-{treat}-feces\pairs\bootstrap_mean_log_p_value.pkl')
     data = data[f"{abx}-{treat}-feces"]
-    index = read_and_print_pkl(path + rf'\{abx}-{treat}-feces\pairs\response_index.pkl')
+    index = read_and_print_pkl(path + rf'/{abx}-{treat}-feces/pairs/response_index.pkl')
     column_names = ['gene', 'correlation']
     compores_results_spf = pd.DataFrame({column_names[0]: index, column_names[1]: data})
+    # compores_results_spf[f'{column_names[1]}_p'] = np.exp(compores_results_spf[column_names[1]])
     compores_results_spf[f'{column_names[1]}_p'] = np.exp(-compores_results_spf[column_names[1]])
     compores_results_spf["genes_name"] = compores_results_spf[column_names[0]].str.split('_').str[-1]
     return compores_results_spf
@@ -1917,6 +1993,7 @@ def significant_viral(viral_genes, significant_genes):
         print(f"Significant genes for {treat}")
         intersect = significant_genes[treat].intersection(viral_genes)
         print(len(intersect), intersect)
+        # TODO: plot a histogram of CompoRes p-value for those genes
 
 
 def significance(genes):
@@ -1958,9 +2035,9 @@ def plot_ip_po_distribution(log=True, threshold=0.05):
 
     # Load data
     ip_data = pd.read_csv(
-        f"./Private/CompoResVerification/Van-IP-intersect-GF{'0_05' if threshold == 0.05 else ''}.tsv", sep="\t")
+        f"./Private/CompoResultsPlots/Van-IP-intersect-GF{'0_05' if threshold == 0.05 else ''}.tsv", sep="\t")
     po_data = pd.read_csv(
-        f"./Private/CompoResVerification/Van-PO-intersect-FMT{'0_05' if threshold == 0.05 else ''}.tsv", sep="\t")
+        f"./Private/CompoResultsPlots/Van-PO-intersect-FMT{'0_05' if threshold == 0.05 else ''}.tsv", sep="\t")
 
     ip_data["correlation"] = -np.log10(ip_data["correlation_p"])
     po_data["correlation"] = -np.log10(po_data["correlation_p"])
@@ -2065,23 +2142,22 @@ def plot_ip_po_distribution(log=True, threshold=0.05):
     fig.legend(labels=['IP', 'PO'], loc='center', bbox_to_anchor=anchor, ncol=1, fontsize=12)
     plt.tight_layout()
     plt.subplots_adjust(wspace=0.3)  # Adjust the vertical space between subplots
-    plt.savefig(f"./Private/compores_response_ranking/IP_PO_distribution{'_log' if log else ''}.png", dpi=600)
-    # plt.show()
+    plt.savefig(f"./Private/CompoResultsPlots/IP_PO_distribution{'_log' if log else ''}.png", dpi=600)
+    plt.show()
     plt.close()
 
 
 if __name__ == "__main__":
-    pass
     # # clock_genes = ["Nfil3", "Map1lc3a", "Dbp", "Ciart", "Atg9a", "Atg13", "Arntl"]
-    # part_circadian_clock_genes = ["nfil3", "ciart", "dbp", "per3", "arntl"]
+    part_circadian_clock_genes = ["nfil3", "ciart", "dbp", "per3"]  # , "arntl"]
     # checking_genes = ["Isg15", "Oasl2", "Zbp1"]
     # part_circadian_clock_genes = ["per1", "per2", "per3", "cry1", "cry2",
     #                               "arntl", "nfil3", "nr1d1", "dbp", "clock",
     #                               "ciart"]  # "bmal1" is arntl. "chrono" is "ciart"?
-    # autophagy_genes = ['Atg10', 'Atg101', 'Atg12', 'Atg13', 'Atg14', 'Atg16l1', 'Atg16l2', 'Atg2a', 'Atg2b',
-    #                    'Atg3', 'Atg4a', 'Atg4b', 'Atg4c', 'Atg4d', 'Atg5', 'Atg7', 'Atg9a', 'Atg9b',
-    #                    'Map1lc3a', 'Map1lc3b', 'Sqstm1', 'Gabarap', 'Gabarapl1', 'Gabarapl2',
-    #                    'Becn1', 'Ulk1', 'Ulk2', 'Ulk3', 'Ulk4', 'Wipi2']
+    autophagy_genes = ['Atg10', 'Atg101', 'Atg12', 'Atg13', 'Atg14', 'Atg16l1', 'Atg16l2', 'Atg2a', 'Atg2b',
+                       'Atg3', 'Atg4a', 'Atg4b', 'Atg4c', 'Atg4d', 'Atg5', 'Atg7', 'Atg9a', 'Atg9b',
+                       'Map1lc3a', 'Map1lc3b', 'Sqstm1', 'Gabarap', 'Gabarapl1', 'Gabarapl2',
+                       'Becn1', 'Ulk1', 'Ulk2', 'Ulk3', 'Ulk4', 'Wipi2']
     # viral_genes = akiko_check()
     # part_circadian_clock_genes = ["per3"]
     # circadian_clock_genes = [gene.capitalize() for gene in checking_genes]
@@ -2090,15 +2166,15 @@ if __name__ == "__main__":
     # circadian_clock_genes = ["atg9a", "atg13", "map1lc3a", "per1", "per2", "cry1", "cry2",
     #                          "arntl", "nfil3", "nr1d1", "dbp", "clock",
     #                          "ciart"]  # "bmal1" is arntl. "chrono" is "ciart"?
-    # # capitalize circadian_clock_genes
+    # capitalize circadian_clock_genes
     # circadian_clock_genes = [gene.capitalize() for gene in circadian_clock_genes]
-    # part_circadian_clock_genes = [gene.capitalize() for gene in part_circadian_clock_genes]
-    # autophagy_genes = [gene.capitalize() for gene in autophagy_genes]
-    # ensmus_dict = get_ensmus_dict()
-    # # reverse this dictionary
-    # names_dict = {v: k for k, v in ensmus_dict.items()}
-    # ensmus_clock_genes = list(names_dict[gene] for gene in part_circadian_clock_genes if gene in names_dict)
-    # ensmus_autophagy_genes = list(names_dict[gene] for gene in autophagy_genes if gene in names_dict)
+    part_circadian_clock_genes = [gene.capitalize() for gene in part_circadian_clock_genes]
+    autophagy_genes = [gene.capitalize() for gene in autophagy_genes]
+    ensmus_dict = get_ensmus_dict()
+    # reverse this dictionary
+    names_dict = {v: k for k, v in ensmus_dict.items()}
+    ensmus_clock_genes = list(names_dict[gene] for gene in part_circadian_clock_genes if gene in names_dict)
+    ensmus_autophagy_genes = list(names_dict[gene] for gene in autophagy_genes if gene in names_dict)
     # ensmus_clock_genes = list(names_dict[gene] for gene in circadian_clock_genes if gene in names_dict)
     # groups = {
     #     "autophagy": ensmus_clock_genes[:3],
@@ -2112,11 +2188,12 @@ if __name__ == "__main__":
     # prepare_genes_to_compores(threshold=0.05, by_genes=viral_genes, folder="viral")
     # prepare_genes_to_compores(threshold=0.05, by_genes=ensmus_clock_genes, folder="auroc")
     # prepare_genes_to_compores(threshold=0.05, by_genes=ensmus_clock_genes, folder="clock")
-    # prepare_genes_to_compores(threshold=0.05, by_genes=ensmus_autophagy_genes, folder="autophagy_all")  # rerun 0.05
+    # prepare_genes_to_compores(threshold=0.05, by_genes=ensmus_autophagy_genes, folder="autophagy_all")  # TODO rerun 0.05
     # for group in groups:
     #     box_plot_compores_comparison_clock(groups[group], "clock", group, significant_clock_genes, ensmus_dict)
+    # box_plot_compores_comparison_clock(ensmus_clock_genes, "clock", part_circadian_clock_genes, significant_clock_genes)
     # box_plot_compores_comparison_clock(ensmus_clock_genes, "clock", circadian_clock_genes, significant_clock_genes)
-    #
+
     # viral_genes = akiko_check()
     # # significant_genes = neo_significance(threshold=0.01)
     # # significant_viral(viral_genes, significant_genes)
@@ -2124,48 +2201,48 @@ if __name__ == "__main__":
     # compare_compores_all_antibiotics(viral_genes, "viral")
     # neo_compores(viral_genes)
     # # # NOTE: 525 are available out of original 586 viral genes
-    # # prepare_genes_to_compores(threshold=0.05, by_genes=list(viral_genes), folder="viral")  # rerun 0.05
+    # # prepare_genes_to_compores(threshold=0.05, by_genes=list(viral_genes), folder="viral")  # TODO rerun 0.05
     # box_plot_compores_comparison_specific(viral_genes, "viral")
+    compare_correlation_fmt(vs_all=True, threshold=0.01)
+    compare_correlation_gf("Van", "IP", threshold=0.01)
+    # plot_ip_po_distribution(threshold=0.05)
+    plot_ip_po_distribution(threshold=0.01, log=False)
+    # quit()
+
+    # # prepare_clock_genes_to_compores(clock_genes)
+    # plot_clock_genes_compores()
+    # quit()
+    # prepare_genes_to_compores(threshold=0.05, folder="zheniya")  # TODO rerun 0.05
+    # # show_case_correlated_genes()  # for all we ran 0.01
+    # compare_correlation_all()
+    # box_plot_compores_comparison()
     # compare_correlation_fmt(vs_all=True, threshold=0.01)
-    # compare_correlation_gf("Van", "IP", threshold=0.01)
-    # # plot_ip_po_distribution(threshold=0.05)
-    # plot_ip_po_distribution(threshold=0.01, log=False)
+    quit()
+    ensmus_to_gene = get_ensmus_dict()
+    all_significant, gf, spf, correlated_intersection, uncorrelated_intersection = compare_correlation_gf("Van", "IP",
+                                                                                                          threshold=0.01)
     # quit()
-    #
-    # # # prepare_clock_genes_to_compores(clock_genes)
-    # # plot_clock_genes_compores()
-    # # quit()
-    # prepare_genes_to_compores(threshold=0.05, folder="zheniya")
-    # # # show_case_correlated_genes()  # for all we ran 0.01
-    # # compare_correlation_all()
-    # # box_plot_compores_comparison()
-    # # compare_correlation_fmt(vs_all=True, threshold=0.01)
-    # quit()
-    # ensmus_to_gene = get_ensmus_dict()
-    # all_significant, gf, spf, correlated_intersection, uncorrelated_intersection = compare_correlation_gf("Van", "IP",
-    #                                                                                                       threshold=0.01)
-    # # quit()
-    # spf.index = [ensmus_to_gene[gene] if gene in ensmus_to_gene else gene for gene in spf.index]
-    # spf = spf.groupby(spf.index).sum()
-    # # 1) All genes (log2 fc like you did), comparing the SPF and GF experiments.
-    # log2fc_plot(gf.index.intersection(spf.index), gf, spf, "all_genes")
-    # # 2) All genes that are significant (p-value) in both SPF and GF, regardless of CompoRes
-    # log2fc_plot(all_significant, gf, spf, "all_significant_genes (no CompoRes)")
-    # # 3) Genes that are significant in SPF and are uncorrelated with microbiota using CompoRes, vs GF significant genes
-    # log2fc_plot(correlated_intersection, gf, spf, "GF_significant_SPF_microbiome_correlated")
-    # # 4) Genes that are significant in SPF and are correlated with microbiota using CompoRes, vs GF significant genes
-    # log2fc_plot(uncorrelated_intersection, gf, spf, "GF_significant_SPF_microbiome_uncorrelated")
-    # # 5) Downsample (1) so that it’s the same size like (3) and like (4), to see how the p-values are after downsampling
-    # random_all = np.random.choice(gf.index.intersection(spf.index), len(correlated_intersection), replace=False)
-    # log2fc_plot(random_all, gf, spf, f"all_genes (down sampled to size of correlated {len(correlated_intersection)})")
-    # random_all = np.random.choice(gf.index.intersection(spf.index), len(uncorrelated_intersection), replace=False)
-    # log2fc_plot(random_all, gf, spf,
-    #             f"all_genes (down sampled to size of uncorrelated {len(uncorrelated_intersection)})")
-    # # 5) 6) Downsample (2) so that it’s the same size like (3) and like (4), to see how the p-values are after downsampling
-    # random_all = np.random.choice(all_significant, len(correlated_intersection), replace=False)
-    # log2fc_plot(random_all, gf, spf,
-    #             f"all_significant_genes (down sampled to size of correlated {len(correlated_intersection)})")
-    # random_all = np.random.choice(all_significant, len(uncorrelated_intersection), replace=False)
-    # log2fc_plot(random_all, gf, spf,
-    #             f"all_significant_genes (down sampled to size of uncorrelated {len(uncorrelated_intersection)})")
-    # quit()
+    spf.index = [ensmus_to_gene[gene] if gene in ensmus_to_gene else gene for gene in spf.index]
+    spf = spf.groupby(spf.index).sum()
+    # 1) All genes (log2 fc like you did), comparing the SPF and GF experiments.
+    log2fc_plot(gf.index.intersection(spf.index), gf, spf, "all_genes")
+    # 2) All genes that are significant (p-value) in both SPF and GF, regardless of CompoRes
+    log2fc_plot(all_significant, gf, spf, "all_significant_genes (no CompoRes)")
+    # 3) Genes that are significant in SPF and are uncorrelated with microbiota using CompoRes, vs GF significant genes
+    log2fc_plot(correlated_intersection, gf, spf, "GF_significant_SPF_microbiome_correlated")
+    # 4) Genes that are significant in SPF and are correlated with microbiota using CompoRes, vs GF significant genes
+    log2fc_plot(uncorrelated_intersection, gf, spf, "GF_significant_SPF_microbiome_uncorrelated")
+    # 5) Downsample (1) so that it’s the same size like (3) and like (4), to see how the p-values are after downsampling
+    random_all = np.random.choice(gf.index.intersection(spf.index), len(correlated_intersection), replace=False)
+    log2fc_plot(random_all, gf, spf, f"all_genes (down sampled to size of correlated {len(correlated_intersection)})")
+    random_all = np.random.choice(gf.index.intersection(spf.index), len(uncorrelated_intersection), replace=False)
+    log2fc_plot(random_all, gf, spf,
+                f"all_genes (down sampled to size of uncorrelated {len(uncorrelated_intersection)})")
+    # 5) 6) Downsample (2) so that it’s the same size like (3) and like (4), to see how the p-values are after downsampling
+    random_all = np.random.choice(all_significant, len(correlated_intersection), replace=False)
+    log2fc_plot(random_all, gf, spf,
+                f"all_significant_genes (down sampled to size of correlated {len(correlated_intersection)})")
+    random_all = np.random.choice(all_significant, len(uncorrelated_intersection), replace=False)
+    log2fc_plot(random_all, gf, spf,
+                f"all_significant_genes (down sampled to size of uncorrelated {len(uncorrelated_intersection)})")
+    quit()

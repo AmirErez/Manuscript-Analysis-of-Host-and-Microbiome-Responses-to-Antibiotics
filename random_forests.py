@@ -1,205 +1,21 @@
-import os
-
 import gseapy
 import matplotlib.pyplot as plt
-import numpy as np
 import pandas as pd
 import requests
 import seaborn as sns
-from scipy.spatial.distance import squareform
+from scipy.spatial.distance import pdist
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import confusion_matrix, classification_report
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
 
-from ClusteringGO import treatments, transform_data, antibiotics
-from all_figures_plot import read_process_files
-
-light_blue = plt.rcParams['axes.prop_cycle'].by_key()['color'][0]
-orange = plt.rcParams['axes.prop_cycle'].by_key()['color'][1]
-
-
-def plot_confusion_matrix(addition="", factor=1, path=os.path.join("Private"), order=None, random=False,
-                          size=(10, 10)):
-    # plot it as a heatmap, make x label "predicted", y label "true"
-    import matplotlib.pyplot as plt
-    import seaborn as sns
-    forest_confusion_matrix = pd.read_csv(path + f"/confusion_matrix{addition}{'_random' if random else ''}.csv",
-                                          index_col=0)
-    if order:
-        forest_confusion_matrix = forest_confusion_matrix.loc[order, order]
-    fig, ax = plt.subplots(figsize=size)
-    # print(forest_confusion_matrix.sum(axis=1).values, forest_confusion_matrix.sum(axis=0).values)
-    print(forest_confusion_matrix.sum().sum())
-
-    # Set the center point
-    center = 1 / len(forest_confusion_matrix)
-    # Create a custom normalization
-    from matplotlib.colors import TwoSlopeNorm
-    norm = TwoSlopeNorm(vmin=0, vcenter=center, vmax=1)
-
-    # increase size of number on the heatmap
-    if factor != 1:
-        heatmap = sns.heatmap(forest_confusion_matrix / factor, annot=True, fmt=".1%", ax=ax, annot_kws={"size": 20},
-                              vmin=0,
-                              vmax=1, norm=norm)
-        to_save = forest_confusion_matrix / factor
-    else:
-        heatmap = sns.heatmap(forest_confusion_matrix, annot=True, fmt=".1%", ax=ax, annot_kws={"size": 20},
-                              cmap="RdBu_r", vmin=0, vmax=1, norm=norm)
-        to_save = forest_confusion_matrix
-
-    to_save.to_csv(path + f"/confusion_matrix{addition}{'_random' if random else ''}.csv")
-    # Add center to cbar
-    cbar = heatmap.collections[0].colorbar
-
-    # # Get the current tick locations and labels
-    # tick_locs = cbar.get_ticks()
-    # if center not in tick_locs:
-    #     tick_locs = sorted(list(tick_locs) + [center])
-    # # tick_locs = [loc for loc in tick_locs if abs(loc - center) > 1e-6]
-    tick_locs = [center * i for i in range(int(1 / center) + 1)]
-
-    cbar.set_ticks(tick_locs)
-    tick_labels = [f'{loc * 100:.0f}%' for loc in tick_locs]
-    # center_index = tick_locs.index(center)
-    # tick_labels[center_index] = f'{center:.3f} (center)'
-    cbar.set_ticklabels(tick_labels)
-
-    ax.tick_params(labelsize=18)
-    ax.set_xlabel("Predicted Category", fontsize=25)
-    ax.set_ylabel("True Category", fontsize=25)
-    plt.tight_layout()
-    plt.savefig(path + f"/confusion_matrix{addition}{'_random' if random else ''}.png")
-    # plt.show()
-    plt.close()
+from ClusteringGO import read_process_files, treatments, transform_data, antibiotics
+# from Yasmin_analysis import four_way_random_forest
+from Yasmin_analysis import four_way_forest, classification_report_to_df, plot_heatmap_colors, orange, light_blue, \
+    plot_confusion_matrix
 
 
-def plot_heatmap_colors(cluster, col_cluster, save_name, top_df, path=os.path.join("Private"), normalize=True,
-                        colors=None, title="", jump=7, xticks=[3.5, 10.5, 17.5, 24.5], show_all_y=True, hline=None,
-                        vline=False, sort=True, set_max=True, multiabx=False):
-    if col_cluster:
-        mice = cluster.dendrogram_col.reordered_ind
-        top_df = top_df.iloc[:, mice]
-    if normalize:
-        # remove from each row its mean
-        top_df = top_df.sub(top_df.mean(axis=1), axis=0)
-        # normalize each row by its standard deviation
-        top_df = top_df.div(top_df.std(axis=1), axis=0)
-    if sort:
-        # sort top_df columns lexically
-        columns = np.argsort(top_df.columns)
-        top_df = top_df.iloc[:, columns]
-
-    # plot the heatmap
-    if set_max:
-        vmax = 10 if show_all_y else set_max
-        # heatmap = sns.heatmap(top_df, vmax=vmax, cmap="RdBu_r")
-        heatmap = sns.heatmap(top_df, vmax=vmax, vmin=-10, cmap="RdBu_r")
-    elif multiabx:
-        vmax = 2
-        vmin = -2
-        heatmap = sns.heatmap(top_df, vmax=vmax, vmin=vmin, cmap="RdBu_r")
-    else:
-        heatmap = sns.heatmap(top_df, cmap="RdBu_r")
-    # create a dictionary 'PBS DONOR': 'blue', 'PBS RECIPIENT': 'light blue',
-    # 'Van DONOR': 'red', 'Van RECIPIENT': 'light red'
-
-    cbar = heatmap.collections[0].colorbar
-    actual_vmin, actual_vmax = cbar.vmin, cbar.vmax
-    # increase tick size
-    cbar.ax.tick_params(labelsize=15)
-    if actual_vmax == vmax:
-        # Define explicit ticks, ensuring they cover your desired range
-        ticks = np.linspace(actual_vmin, actual_vmax, num=5)  # Adjust the number of ticks as needed
-        # Set the ticks on the colorbar
-        cbar.set_ticks(ticks)
-        # Customize tick labels, modifying the last label to indicate a limit
-        last = f"{ticks[-1]:.0f}+" if actual_vmax == vmax else actual_vmax
-        first = f"{ticks[0]:.0f}+" if actual_vmin == vmin else actual_vmin
-        tick_labels = [first] + [f"{tick:.0f}" for tick in ticks[1:-1]] + [last]  # Add '+' to the last label
-        # Apply the customized tick labels
-        cbar.set_ticklabels(tick_labels)
-
-    if not colors:
-        colors = {'Donor PBS': 'blue', 'Recipient PBS': light_blue, 'Donor Van': 'red', 'Recipient Van': orange}
-    label_colors = [colors[label] for label in top_df.columns]
-    if hline:
-        plt.axhline(y=hline, color='black', linewidth=1)
-    if vline:
-        for i in range(1, 3):
-            # draw a line between pbs and abx
-            plt.axvline(x=14 * i - 7, color="black", linewidth=1, linestyle="--")
-            # draw a dashed line between time points
-            plt.axvline(x=14 * i, color="black", linewidth=1)
-    bar_height = 0.01 * top_df.shape[0]
-    ax = plt.gca()
-    for k, color in enumerate(label_colors):
-        bar_width = 1  # Set the width to match a column (fixed at 1)
-        ax.add_patch(
-            plt.Rectangle((k, top_df.shape[0] - bar_height), bar_width, bar_height, color=color,
-                          fill=True))
-    if jump:
-        # show only the 4th, 11th, 18th, 25th columns
-        ax.set_xticks(xticks)
-        ax.set_xticklabels(top_df.columns[::jump])
-        plt.xticks(rotation=45, ha='center', size=20)
-    else:
-        plt.xticks(np.arange(len(top_df.columns)), top_df.columns, rotation=0, fontsize=8)
-        plt.xticks(rotation=90, ha='center', size=20)
-    if title:
-        plt.title(title)
-    # plt.xticks(np.arange(len(top_df.columns)), top_df.columns, rotation=45, ha='right', fontsize=12)
-    if show_all_y:
-        # show all yticks
-        plt.yticks(np.arange(len(top_df.index)), top_df.index, rotation=0, fontsize=8)
-    plt.ylabel("")
-    # increase all font sizes
-    plt.rc('font', size=25)
-    plt.gcf().set_size_inches(2.5 * (len(colors) + 1), 15 * top_df.shape[0] / 100)
-    plt.tight_layout()
-    if top_df.shape[0] < 400:
-        # plt.savefig(f"./Private/YasminRandomForest/{save_name}.png", dpi=600)
-        plt.savefig(path + f"/{save_name}.pdf", dpi=600)
-        plt.savefig(path + f"/{save_name}.png", dpi=600)
-    else:
-        plt.savefig(path + f"/{save_name}.pdf")
-        plt.savefig(path + f"/{save_name}.png")
-    plt.close()
-    import matplotlib
-    matplotlib.rcParams.update(matplotlib.rcParamsDefault)
-
-
-def classification_report_to_df(report_str):
-    import re
-
-    lines = report_str.split('\n')
-
-    # Find the column names
-    column_names = re.findall(r'\b\w+\b', lines[0])
-
-    # Initialize an empty list to store data
-    data = []
-
-    # Iterate through the lines and extract data
-    for line in lines[2:-5]:
-        values = re.findall(r'\b\d+\.?\d*\b', line)
-        if values:
-            data.append(values)
-
-    # Create a Pandas DataFrame
-    df = pd.DataFrame(data, columns=column_names)
-
-    # set precision to index, rename recall to precision, f1 to recall, score to f1-score
-    df = df.rename(columns={"precision": "index", "recall": "precision", "f1": "recall", "score": "f1-score"})
-    df = df.set_index("index")
-    # convert all values to float
-    df = df.astype(float)
-
-    return df
-
-
-def four_way_forest(df, feature_columns, target_column, test_size=8 / 28, random_state=42):
+def class_forest(df, feature_columns, target_column, test_size=8 / 28, random_state=42):
     """
     Perform classification with a random forest classifier for four classes.
 
@@ -225,11 +41,11 @@ def four_way_forest(df, feature_columns, target_column, test_size=8 / 28, random
     y = label_encoder.fit_transform(y)
 
     # Split the data into training and testing sets
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, random_state=random_state + 2,
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, random_state=random_state,
                                                         stratify=y)
 
     # Build a random forest classifier
-    clf = RandomForestClassifier(random_state=random_state + 1)
+    clf = RandomForestClassifier(random_state=random_state)
     clf.fit(X_train, y_train)
 
     # Predictions on the test set
@@ -245,16 +61,22 @@ def four_way_forest(df, feature_columns, target_column, test_size=8 / 28, random
     # create a dictionary of the labels using the label encoder
     labels_dict = {i: label for i, label in enumerate(label_encoder.classes_)}
 
+    # print("Actual Labels:")
+    # print(labels_dict)
+    # print("\nConfusion Matrix:")
+    # print(conf_matrix)
+    # print("\nClassification Report:")
+    # print(classification_rep)
     # convert classification report to a DataFrame
     report = classification_report_to_df(classification_rep)
     # get features importance
     importance = pd.Series(clf.feature_importances_, index=feature_columns)
 
-    return conf_matrix, report.values, importance, labels_dict
+    return conf_matrix, report.values, importance
 
 
 def four_way_random_forest_multiabx(abx_data, abx_metadata, title, column, abx=True, reps=10000,
-                                    path=os.path.join("Private", "AbxRandomForest")):
+                                    path="./Private/AbxRandomForest"):
     # add to data the group column from metadata
     abx_data = abx_data.T
     # intersecting_genes = fmt_data.index.intersection(abx_data.index)
@@ -263,13 +85,11 @@ def four_way_random_forest_multiabx(abx_data, abx_metadata, title, column, abx=T
         # abx_data = abx_data.loc[intersecting_genes]
         abx_metadata[column] = abx_metadata["Drug"] + "_" + abx_metadata["Treatment"]
 
-    abx_data = pd.merge(abx_data, abx_metadata[["ID", column]], left_index=True, right_on="ID", how='outer').set_index(
-        "ID")
+    abx_data = pd.merge(abx_data, abx_metadata[["ID", column]], left_index=True, right_on="ID").set_index("ID")
     n = abx_metadata[column].nunique()
     confusion_matrix = np.zeros((n, n))
     classification_report = np.zeros((n, 4))
     importance = pd.Series(np.zeros(len(abx_data.columns[:-1])), index=abx_data.columns[:-1])
-    # replace na with 0
     for i in range(reps):
         result = four_way_forest(abx_data, abx_data.columns[:-1], column,
                                  test_size=n * 1.5 / abx_data.shape[0], random_state=i)
@@ -287,12 +107,14 @@ def four_way_random_forest_multiabx(abx_data, abx_metadata, title, column, abx=T
     # normalizing confusion matrix by the sum of each row
     confusion_matrix = confusion_matrix.div(confusion_matrix.sum(axis=1), axis=0)
 
+    # make a df from the confusion matrix with columns |  PBS_DONOR   |  PBS_RECIPIENT  |  Vanco_DONOR  | Vanco_RECIPIENT |
+    # and rows |  PBS_DONOR   |  PBS_RECIPIENT  |  Vanco_DONOR  | Vanco_RECIPIENT |
+    # confusion_matrix = pd.DataFrame(confusion_matrix,
+    #                                 columns=[labels_dict[i] for i in range(confusion_matrix.shape[0])],
+    #                                 index=[labels_dict[i] for i in range(confusion_matrix.shape[0])])
     confusion_matrix.index = [labels_dict[i] for i in range(confusion_matrix.shape[0])]
     confusion_matrix.columns = [labels_dict[i] for i in range(confusion_matrix.shape[0])]
     # save the confusion matrix
-    # if path does not exist, create it
-    if not os.path.exists(path):
-        os.makedirs(path)
     confusion_matrix.to_csv(path + f"/confusion_matrix_{title}.csv", index=True)
 
     classification_report = pd.DataFrame(classification_report, columns=["precision", "recall", "f1-score", "support"])
@@ -305,7 +127,7 @@ def four_way_random_forest_multiabx(abx_data, abx_metadata, title, column, abx=T
 
 
 def four_way_random_forest_multitreat(abx_data, abx_metadata, title, column, abx=True, reps=10000,
-                                      path=os.path.join("Private", "AbxRandomForest"), random=False):
+                                      path="./Private/AbxRandomForest", random=False):
     # add to data the group column from metadata
     abx_data = abx_data.T
     # intersecting_genes = fmt_data.index.intersection(abx_data.index)
@@ -383,31 +205,31 @@ def background_analysis(background):
 
 
 def multi_abx_forest():
-    metadata, data = read_process_files(new=False)
-    data, metadata = transform_data(data, metadata, "RASflow",
-                                    skip=True)  # note we don't do that due to 324 np.inf values caused by division by 0
-
+    _, metadata, _, data = read_process_files(new=False)
+    data, metadata = transform_data(data, metadata, "RASflow")
     metadata["group"] = metadata["Drug"] + "_" + metadata["Treatment"]
     ensmus_to_gene = get_ensmus_dict()
-    # background_id = background_analysis(data.rename(index=ensmus_to_gene).index)
+    background_id = background_analysis(data.rename(index=ensmus_to_gene).index)
     background_id = data.rename(index=ensmus_to_gene).index.to_list()
-    # for treat in ["IP"]:
     for treat in treatments:
         sub_metadata = metadata[metadata["Treatment"] == treat]
         sub_data = data[sub_metadata['ID']]
 
-        four_way_random_forest_multiabx(sub_data, sub_metadata, treat, "group", abx=True, reps=10_000)
+        # four_way_random_forest_multiabx(sub_data, sub_metadata, treat, "group", abx=True, reps=10000)
 
-        plot_confusion_matrix(f"_{treat}", factor=1, path=os.path.join("Private", "AbxRandomForest"),
-                              order=[abx + f"_{treat}" for abx in ["PBS"] + antibiotics])
-        analyze_results(sub_data, sub_metadata, f"_{treat}", sizes=(400,), background=background_id,
+        # plot_confusion_matrix(f"_{treat}", factor=1, path="./Private/AbxRandomForest", order=[abx + f"_{treat}" for abx in ["PBS"] + antibiotics])
+        # analyze_results(sub_data, sub_metadata, f"_{treat}", sizes=(800, 1600), background=background_id,
+        # analyze_results(sub_data, sub_metadata, f"_{treat}", sizes=(50, 100, 200, 400, ), background=background_id,
+        analyze_results(sub_data, sub_metadata, f"_{treat}", sizes=(1600, ), background=background_id,
                         treat=treat)
+        # analyze_results(sub_data, sub_metadata, f"_{treat}", sizes=(200,))
+        # analyze_results(sub_data, sub_metadata, f"_{treat}", sizes=(100, 200, 400))
+        # analyze_results(sub_data, sub_metadata, f"_{treat}", sizes=(50, 100, 200, 400, ))
 
 
 def multi_treat_forest(random=False):
-    metadata, data = read_process_files(new=False)
-    data, metadata = transform_data(data, metadata, "RASflow", skip=True)
-
+    _, metadata, _, data = read_process_files(new=False)
+    data, metadata = transform_data(data, metadata, "RASflow")
     metadata["group"] = metadata["Drug"] + "_" + metadata["Treatment"]
     ensmus_to_gene = get_ensmus_dict()
     # background_id = background_analysis(data.rename(index=ensmus_to_gene).index)
@@ -416,28 +238,37 @@ def multi_treat_forest(random=False):
         sub_metadata = metadata[(metadata["Drug"] == abx) | (metadata["Drug"] == "PBS")]
         sub_data = data[sub_metadata['ID']]
 
-        four_way_random_forest_multitreat(sub_data, sub_metadata, abx, "group", abx=True, reps=10_000, random=random)
+        # four_way_random_forest_multitreat(sub_data, sub_metadata, abx, "group", abx=True, reps=10_000, random=random)
 
-        plot_confusion_matrix(f"_{abx}", factor=1, path=os.path.join("Private", "AbxRandomForest"),
-                              order=[abx + f"_{treat}" for treat in treatments] + ["PBS"], random=random)
-        analyze_results(sub_data, sub_metadata, f"_{abx}", sizes=(400,), background=background_id,
+        # plot_confusion_matrix(f"_{abx}", factor=1, path="./Private/AbxRandomForest",
+        #                       order=[abx + f"_{treat}" for treat in treatments] + ["PBS"], random=random)
+        # # analyze_results(sub_data, sub_metadata, f"_{treat}", sizes=(800,), background=background_id,
+        # analyze_results(sub_data, sub_metadata, f"_{abx}", sizes=(50, 100, 200, 400, ), background=background_id,
+        analyze_results(sub_data, sub_metadata, f"_{abx}", sizes=(800, 1600, ), background=background_id,
                         treat=abx)
 
 
 def get_ensmus_dict():
-    df = pd.read_csv(os.path.join("Data", "transcriptome_2023-09-17-genes_norm_named.tsv"), sep="\t")
+    folder_dir = f"../Data/MultiAbx-16s/MultiAbx-RPKM-RNAseq-B6/new normalization/"
+    df = pd.read_csv(folder_dir + "transcriptome_2023-09-17-genes_norm_named.tsv", sep="\t")
     return df.set_index('gene_id')['gene_name'].to_dict()
 
 
 factors = {
-    "IP": 50,
-    "IV": 70,
-    "PO": 25,
-    "Amp": 100,
-    "Met": 23,
-    "Neo": 140,
-    "Van": 45,
-    "Mix": 18,
+    "IP": 4.085,
+    "IV": 4.68,
+    "PO": 3.92,
+    "Amp": 4,
+    "Mix": 4,
+    "Neo": 4,
+    "Van": 4,
+    "Met": 4,
+    "AMP": 4,
+    "MIX": 4,
+    "NEO": 4,
+    "VAN": 4,
+    "MET": 4,
+    "?": 4,
 }
 
 
@@ -466,16 +297,25 @@ def plot_cumsum(feature_importance, title):
 
     plt.legend()
     plt.grid(True)
-    plt.savefig(path=os.path.join("Private", "AbxRandomForest", "feature_importance_cum-sum{title}.png"))
+    plt.savefig(f"./Private/AbxRandomForest/feature_importance_cum-sum{title}.png")
 
     # Show the plot
-    # plt.show()
-    plt.close()
+    plt.show()
+
+    # # Print the number of features needed for 80% and 90% importance
+    # features_80 = len(feature_importance_sorted[feature_importance_sorted['cumsum_percent'] <= 80])
+    # features_90 = len(feature_importance_sorted[feature_importance_sorted['cumsum_percent'] <= 90])
+    #
+    # print(f"Number of features needed for 80% importance: {features_80}")
+    # print(f"Number of features needed for 90% importance: {features_90}")
 
 
-def analyze_results(data, metadata, title, background, treat, sizes=(100, 200, 400), abx=None, random=False):
+def analyze_results(data, metadata, title, background, treat, path="AbxRandomForest", sizes=(100, 200, 400), abx=None, random=False):
     samples_order = []
-    if treat in treatments:
+    if "Pairs" in path:
+        samples_order.extend(metadata[(metadata["Drug"] == "PBS")]["ID"].values)
+        samples_order.extend(metadata[(metadata["Drug"] != "PBS")]["ID"].values)
+    elif treat in treatments:
         for abx in ["PBS"] + antibiotics:
             samples_order.extend(metadata[(metadata["Drug"] == abx) & (metadata["Treatment"] == treat)]["ID"].values)
     else:
@@ -485,8 +325,8 @@ def analyze_results(data, metadata, title, background, treat, sizes=(100, 200, 4
             samples_order.extend(metadata[(metadata["Drug"] == treat) & (metadata["Treatment"] == treat_)]["ID"].values)
     data = data[samples_order]
     # change group column to group (ID)
-    feature_importance = pd.read_csv(os.path.join("Private", "AbxRandomForest", f"feature_importance{title}.csv"),
-                                     index_col=0)
+
+    feature_importance = pd.read_csv(f"./Private/{path}/feature_importance{title}.csv", index_col=0)
     ensmus_to_gene = get_ensmus_dict()
     # rename index to "gene" and rename first column to "importance"
     feature_importance.index.name = "gene"
@@ -512,10 +352,133 @@ def analyze_results(data, metadata, title, background, treat, sizes=(100, 200, 4
         top_df = top_df.rename(columns=metadata.set_index('ID')['group'].to_dict())
         top_df.rename(index=ensmus_to_gene, inplace=True)
 
+        # plt.scatter(top_df.columns, top_df.loc["Gsk3b"])
+        # options = ["PBS_IP", "Amp_IP", "Met_IP", "Neo_IP", "Van_IP", "Mix_IP"]
+        # means = [np.mean(top_df.loc["Gsk3b"][abx]) for abx in options]
+        # plt.scatter(options, means, c="r", marker="x")
+        # plt.title("Gsk3b")
+        # plt.show()
         # background = background_analysis(top_df.index)
         dynamic_tree_plot(top_df, [gene for gene in background if type(gene) is str], factors[treat],
-                          title + f"_{num_top}")
+                          title + f"_{num_top}", path=path)
         continue
+
+        # dynamic_tree_plot(top_df, False, factors[treat], title)
+        # dynamic_tree_plot(top_df, False, factors[treat], title)
+        # continue
+        if "Cluster" in top_df.columns:
+            top_df = top_df.drop("Cluster", axis=1)
+
+        # cluster the genes using hierarchical clustering
+        cluster = sns.clustermap(top_df, row_cluster=True, metric="euclidean", method="average",
+                                 col_cluster=False, z_score=0)
+        # increase x labels font size
+        plt.xticks(fontsize=16)
+        # get the order of the genes after clustering
+        # genes = cluster.data2d.index
+        genes = cluster.dendrogram_row.reordered_ind
+        # show all y labels
+        plt.yticks(np.arange(len(top_df.index)), top_df.index, rotation=0, fontsize=8)
+        # remove y label
+        plt.ylabel("")
+        # increase figure size
+        plt.gcf().set_size_inches(15, 15 * num_top / 100)
+        # save the clustermap
+        plt.savefig(
+            f"./Private/AbxRandomForest/feature_importance_{num_top}_clustermap{'_' + abx if abx else ''}{title}.png")
+        plt.close()
+        top_df = top_df.iloc[genes]
+        top_df.to_csv(
+            f"./Private/AbxRandomForest/feature_importance_{num_top}_clustered{'_' + abx if abx else ''}{title}.csv")
+        treat = title.split("_")[-1].upper()
+        colors = {f'PBS_{treat}': light_blue, f'Amp_{treat}': 'red',
+                  f'Met_{treat}': orange, f'Van_{treat}': 'purple',
+                  f'Neo_{treat}': 'yellow', f'Mix_{treat}': 'pink'} if treat in treatments else {
+            "PBS_IP": light_blue, 'PBS_IV': "blue", "PBS_PO": "green",
+            f"{treat.capitalize()}_IP": "red", f'{treat.capitalize()}_IV': "orange", f"{treat.capitalize()}_PO": "yellow",
+        }
+
+        plot_heatmap_colors(cluster, False, f"feature_importance_{num_top}{title}_heatmap", top_df, colors=colors,
+                            jump=False, path="./Private/AbxRandomForest", set_max=False, multiabx=True)
+
+
+# def dynamic_tree_cut(link, dist, factor, depth=4):
+#     from scipy.cluster.hierarchy import inconsistent, fcluster
+#
+#     # Calculate inconsistency statistics
+#     incons = inconsistent(link)
+#
+#     # Determine cut threshold based on inconsistency
+#     threshold = np.mean(incons[:, -1]) + factor * np.std(incons[:, -1])
+#
+#     clusters = fcluster(link, t=threshold, criterion='inconsistent', depth=depth)
+#     # Perform clustering
+#     return clusters
+
+
+# def dynamic_tree_cut(link, distances, factor, depth=4):
+#     # Calculate inconsistency statistics
+#     incons = inconsistent(link)
+#
+#     # Determine initial cut threshold based on inconsistency
+#     threshold = np.mean(incons[:, -1]) + 3 * np.std(incons[:, -1])
+#     # threshold = np.mean(incons[:, -1]) + factor * np.std(incons[:, -1])
+#
+#     # Perform initial clustering
+#     initial_clusters = fcluster(link, t=threshold, criterion='inconsistent', depth=depth)
+#
+#     # Calculate distances between points in the original data
+#     distance_matrix = squareform(distances)
+#
+#     # Create a linkage tree
+#     tree, nodes = to_tree(link, rd=True)
+#
+#     # Convert clusters to a dictionary format for easy access
+#     clusters = {i: np.where(initial_clusters == i)[0].tolist() for i in np.unique(initial_clusters)}
+#
+#     merged = True
+#     while merged:
+#         merged = False
+#         # Traverse the dendrogram tree and check adjacent clusters
+#         for node in nodes:
+#             if node.is_leaf():
+#                 continue
+#             left_cluster = get_leaves(node.get_left(), initial_clusters, clusters)
+#             right_cluster = get_leaves(node.get_right(), initial_clusters, clusters)
+#
+#             left_cluster_id = initial_clusters[left_cluster[0]]
+#             right_cluster_id = initial_clusters[right_cluster[0]]
+#             if right_cluster_id == left_cluster_id:
+#                 continue
+#
+#             within_left_var = calculate_within_cluster_variance(left_cluster, distance_matrix)
+#             within_right_var = calculate_within_cluster_variance(right_cluster, distance_matrix)
+#             between_var = calculate_between_cluster_variance(left_cluster, right_cluster, distance_matrix)
+#
+#             if within_left_var < between_var and within_right_var < between_var:
+#                 # Merge right cluster into left cluster
+#                 clusters[left_cluster_id] += right_cluster
+#                 for index in right_cluster:
+#                     initial_clusters[index] = left_cluster_id
+#                 del clusters[right_cluster_id]
+#                 merged = True
+#
+#     # Final cluster labels
+#     final_clusters = np.zeros(len(initial_clusters), dtype=int)
+#     for cluster_id, indices in clusters.items():
+#         final_clusters[indices] = cluster_id
+#
+#     return final_clusters
+
+import numpy as np
+from scipy.spatial.distance import squareform
+
+
+def calculate_within_cluster_variance(cluster_indices, distance_matrix):
+    if len(cluster_indices) <= 1:
+        return 0
+    within_cluster_dists = distance_matrix[np.ix_(cluster_indices, cluster_indices)]
+    return np.var(within_cluster_dists[np.triu_indices(len(cluster_indices), k=1)])
 
 
 def calculate_between_cluster_variance(cluster_indices_1, cluster_indices_2, distance_matrix):
@@ -523,7 +486,14 @@ def calculate_between_cluster_variance(cluster_indices_1, cluster_indices_2, dis
     return np.var(between_cluster_dists.flatten())
 
 
-def dynamic_tree_cut(link, distances, size_penalty_factor=50, min_cluster_size=3):
+def get_leaves(node):
+    if node.is_leaf():
+        return [node.id]
+    else:
+        return get_leaves(node.left) + get_leaves(node.right)
+
+
+def dynamic_tree_cut(link, distances, size_penalty_factor=5, min_cluster_size=3):
     n_samples = link.shape[0] + 1
     distance_matrix = squareform(distances)
 
@@ -567,8 +537,8 @@ def dynamic_tree_cut(link, distances, size_penalty_factor=50, min_cluster_size=3
 
     # Assign cluster labels
     cluster_labels = np.zeros(n_samples, dtype=int)
-    # valid_clusters = [c for c in clusters if c]  # Remove empty clusters
-    for i, cluster in enumerate(clusters):
+    valid_clusters = [c for c in clusters if c]  # Remove empty clusters
+    for i, cluster in enumerate(valid_clusters):
         for sample in cluster:
             cluster_labels[sample] = i
 
@@ -581,6 +551,75 @@ def check_enrichment(genes, background):
         return gseapy.enrichr(gene_list=genes, gene_sets=db, organism="mouse", outdir=None,
                               background=background).results
     return gseapy.enrichr(gene_list=genes, gene_sets=db, organism="mouse", outdir=None).results
+
+
+# def check_enrichment(genes, background):
+#     import json
+#     genes = [gene for gene in genes if type(gene) is str]
+#     description = ",".join(genes)
+#
+#     db = "GO_Biological_Process_2023"
+#     if background:
+#         base_url = "https://maayanlab.cloud/speedrichr"
+#         res = requests.post(
+#             base_url + '/api/addList',
+#             files=dict(
+#                 list=(None, '\n'.join(genes)),
+#                 description=(None, description),
+#             )
+#         )
+#         if res.ok:
+#             userlist_response = res.json()
+#             response = userlist_response["userListId"]
+#             ENRICHR_URL = 'https://maayanlab.cloud/Enrichr/view?userListId=%s'
+#             req_res = requests.get(ENRICHR_URL % response)
+#             if req_res.ok:
+#                 uploaded_genes = json.loads(req_res.text)["genes"]
+#                 if sorted([gene.lower() for gene in genes]) != sorted([gene.lower() for gene in uploaded_genes]):
+#                     print(sorted([gene.lower() for gene in genes]), '\n', sorted([gene.lower() for gene in uploaded_genes]))
+#                 # assert sorted([gene.lower() for gene in genes]) == sorted([gene.lower() for gene in uploaded_genes])
+#         else:
+#             return
+#         base_url = "https://maayanlab.cloud/speedrichr"
+#
+#         res = requests.post(
+#             base_url + '/api/backgroundenrich',
+#             data=dict(
+#                 userListId=response,
+#                 backgroundid=background,
+#                 backgroundType=db,
+#             )
+#         )
+#         if res.ok:
+#             results = res.json()
+#             return results[db]
+#     else:
+#         ENRICHR_URL = 'https://maayanlab.cloud/Enrichr/addList'
+#         payload = {
+#             'list': (None, '\n'.join(genes)),
+#             'description': (None, description)
+#         }
+#
+#         res = requests.post(ENRICHR_URL, files=payload)
+#         if res.ok:
+#             userlist_response = json.loads(res.text)
+#             response = userlist_response["userListId"]
+#             ENRICHR_URL = 'https://maayanlab.cloud/Enrichr/view?userListId=%s'
+#             req_res = requests.get(ENRICHR_URL % response)
+#             if req_res.ok:
+#                 uploaded_genes = json.loads(req_res.text)["genes"]
+#                 assert sorted([gene.lower() for gene in genes]) == sorted([gene.lower() for gene in uploaded_genes])
+#         else:
+#             return
+#
+#         ENRICHR_URL = 'https://maayanlab.cloud/Enrichr/enrich'
+#         query_string = '?userListId=%s&backgroundType=%s'
+#         res = requests.get(
+#             ENRICHR_URL + query_string % (response, db)
+#         )
+#         if res.ok:
+#             results = json.loads(res.text)
+#             return results[db]
 
 
 def remap_clusters(clusters, order):
@@ -635,7 +674,6 @@ def change_group_number(numbers):
             # Replace with a new number
             new_numbers.extend([next_new_number] * (j - i))
             next_new_number += 1
-            # print(f"Group {index} has been seen before")
         else:
             # Keep the original numbers
             new_numbers.extend(group)
@@ -646,9 +684,12 @@ def change_group_number(numbers):
     return new_numbers
 
 
-def dynamic_tree_plot(top_df, background, factor, title):
+def dynamic_tree_plot(top_df, background, factor, title, path="AbxRandomForest"):
+    from scipy.cluster.hierarchy import linkage
     from scipy.cluster import hierarchy
-    from scipy.spatial.distance import pdist
+    # from dynamicTreeCut import cutreeHybrid
+    # from scipy.spatial.distance import pdist
+    # from sklearn.preprocessing import StandardScaler
     # top_df = np.transpose(np.arange(1, 10001).reshape(100, 100))
     # distances = pdist(top_df, "euclidean")
     # normalized_df = (top_df - top_df.mean()) / top_df.std()
@@ -658,22 +699,21 @@ def dynamic_tree_plot(top_df, background, factor, title):
                        col_cluster=False, z_score=0)
 
     # Access the linkage matrix used for the rows
-    orig_link = g.dendrogram_row.linkage
+    link = g.dendrogram_row.linkage
     # # Get the leaf order
-    # leaf_order = sch.leaves_list(orig_link)
+    # leaf_order = leaves_list(link)
     # # Reorder the DataFrame
     # ordered_df = top_df.iloc[leaf_order]
-    # link = sch.linkage(ordered_df, "average")
+    # link = linkage(ordered_df, "average")
     # Cut the dendrogram dynamically
-    # clusters = dynamic_tree_cut(top_df)  # , factor)
-    clusters = dynamic_tree_cut(orig_link, pdist(top_df), size_penalty_factor=factor)  # , factor)
+    clusters = dynamic_tree_cut(link, pdist(top_df))  # , factor)
 
-    ordered = hierarchy.dendrogram(orig_link, no_plot=True)['leaves']
+    ordered = hierarchy.dendrogram(link, no_plot=True)['leaves']
     reordered_clusters = [clusters[i] for i in ordered]
-    remapped_clusters = change_group_number(reordered_clusters)
+    reordered_clusters = change_group_number(reordered_clusters)
     # Map reordered clusters back to original positions
     for i, original_index in enumerate(ordered):
-        clusters[original_index] = remapped_clusters[i]
+        clusters[original_index] = reordered_clusters[i]
     # Iterate over clusters and collect indexes
     top_df['Cluster'] = clusters
     cluster_dict = {}
@@ -685,7 +725,7 @@ def dynamic_tree_plot(top_df, background, factor, title):
             clusters[clusters == cluster_id] = -1
         else:
             cluster_dict[cluster_id] = cluster_indexes
-    clusters, mapping = remap_clusters(clusters, list(dict.fromkeys([clusters[i] for i in ordered])))
+    clusters, mapping = remap_clusters(clusters, list(dict.fromkeys(reordered_clusters)))
     top_df = top_df.drop("Cluster", axis=1)
 
     # names = {}
@@ -701,6 +741,11 @@ def dynamic_tree_plot(top_df, background, factor, title):
         # print(f"Cluster {cluster_id}: {indexes}")
         enrichment = check_enrichment([gene for gene in indexes if type(gene) is str], background)
         if enrichment is not None:
+            # print(cluster_id, ": ", indexes, "\n", enrichment)
+            # enrichment = pd.DataFrame(enrichment, columns=["index", "Name", "P-value", "Odds Ratio", "Combined score",
+            #                                                 "Overlap Genes", "Adjusted p-value",
+            #                                                 "old p-value", "old Adjusted p-value"])
+            # names[cluster_id] = enrichment
             enrichment["cluster_id"] = mapping[cluster_id]
             enrichment["#of_genes"] = enrichment["Genes"].str.count(";") + 1
             enrichment["All_Genes"] = ",".join([gene for gene in indexes if type(gene) is str])
@@ -710,23 +755,31 @@ def dynamic_tree_plot(top_df, background, factor, title):
     enrichment_analysis = enrichment_analysis.drop(["Old P-value", "Old adjusted P-value"], axis=1)
     enrichment_analysis["adj.P-val<5%"] = enrichment_analysis["Adjusted P-value"] < 0.05
     enrichment_analysis["P-val<5%"] = enrichment_analysis["P-value"] < 0.05
-    enrichment_analysis.to_csv(os.path.join("Private", "AbxRandomForest",
-                                            f"cluster_dynamic{title}_enrichment_{'background' if background else ''}.csv"),
-                               index=False)
+    enrichment_analysis.to_csv(
+        f"./Private/{path}/cluster_dynamic{title}_enrichment_{'background' if background else ''}.csv",
+        index=False)
     enrichment_analysis[enrichment_analysis["Adjusted P-value"] < 0.05].to_csv(
-        os.path.join("Private", "AbxRandomForest",
-                     f"cluster_dynamic{title}_enrichment_{'background' if background else ''}_filtered.csv"),
+        f"./Private/{path}/cluster_dynamic{title}_enrichment_{'background' if background else ''}_filtered.csv",
         index=False)
 
     # Create a color palette for the clusters
     n_clusters = len(np.unique(clusters))
     print(n_clusters)
-
+    # if n_clusters < 20:
+    #     palette = sns.color_palette("tab20")
+    # elif n_clusters < 25:
+    #     custom_palette = ['#FFF7EC', '#FEE8C8', '#FDD49E', '#FDBB84', '#FC8D59', '#EF6548', '#D7301F', '#990000',
+    #                       '#1F77B4', '#FF7F0E', '#2CA02C', '#D62728', '#9467BD', '#8C564B', '#E377C2', '#7F7F7F',
+    #                       '#BCBD22', '#17BECF', '#EDF8FB', '#BFD3E6', '#9EBCDA', '#8C96C6', '#8C6BB1', '#88419D', '#6E016B']
+    #     np.random.shuffle(custom_palette)
+    #     palette = sns.color_palette(custom_palette[:n_clusters])
+    # else:
+    #     palette = sns.color_palette("husl", n_colors=n_clusters + 1)
+    #     np.random.shuffle(palette)
     palette = sns.color_palette("tab10")
-    # palette = palette + [(0, 0, 0)]  # Black in RGB is (0, 0, 0)
-    # palette = sns.color_palette(palette)
-    cluster_colors = [palette[c % len(palette)] if c != -1 else (0, 0, 0) for c in clusters]
-    # cluster_colors[-1] = [(0, 0, 0)]  # Black in RGB is (0, 0, 0)
+    palette = palette + [(0, 0, 0)]  # Black in RGB is (0, 0, 0)
+    palette = sns.color_palette(palette)
+    cluster_colors = [palette[c % len(palette)] for c in clusters]
     # Standardize the data
     # scaler = StandardScaler()
     # scaled_data = scaler.fit_transform(top_df)
@@ -746,39 +799,47 @@ def dynamic_tree_plot(top_df, background, factor, title):
     # Create a custom colormap using the defined colors
     single_axis_cmap = LinearSegmentedColormap.from_list("SingleAxisDiverging", colors)
     limit = 6
-    # limit = max(abs(top_df.values.min()), abs(top_df.values.max()))
     g = sns.clustermap(top_df,
                        row_colors=cluster_colors,
                        col_cluster=False,
-                       row_linkage=orig_link,
+                       row_linkage=link,
                        # cmap="vlag",
                        cmap=single_axis_cmap,
                        # figsize=(12, 8),
                        dendrogram_ratio=0.2,
                        vmax=limit,
                        vmin=-limit,
-                       # z_score=0
                        # cbar_pos=(0.02, 0.8, 0.05, 0.18)
                        )
 
     # save
     plotted_data = g.data2d
-    plotted_data.to_csv(os.path.join("Private", "AbxRandomForest", f"cluster_dynamic{title}.csv"))
+    plotted_data.to_csv(f"./Private/{path}/cluster_dynamic{title}.csv")
 
     # # Adjust the colorbar label
     # g.ax_cbar.set_ylabel('Standardized Values')
     # Add cluster labels to the dendrogram
     for i, c in enumerate(np.unique(clusters)):
-        color_cluster = palette[c % len(palette)] if c != -1 else (0, 0, 0)
-        g.ax_row_dendrogram.bar(0, 0, color=color_cluster, label=f'Cluster {c}', linewidth=0)
+        g.ax_row_dendrogram.bar(0, 0, color=palette[c % len(palette)], label=f'Cluster {c}', linewidth=0)
     g.ax_row_dendrogram.legend(title='Clusters', loc="center")  # , bbox_to_anchor=(0.5, 0.8))
     plt.title('Clustered Heatmap with Dendrogram', y=1.02)
     plt.tight_layout()
-    plt.savefig(os.path.join("Private", "AbxRandomForest", f"cluster_dynamic{title}.png"))
+    plt.savefig(f"./Private/{path}/cluster_dynamic{title}.png")
     # plt.show()
     plt.close()
 
 
+def sonia_forest():
+    data = pd.read_csv("../Data/Sonia/Partek_Sonia_GF_exp13_Normalization_Normalized_counts_for_Deseq2.csv",
+                       index_col=0)
+    metadata = pd.read_csv("../Data/Sonia/metadata for Random forest.txt", sep='\t')
+    # rename "Sample" to "ID" column
+    metadata.columns = ["ID", "Condition"]
+    four_way_random_forest_multiabx(data, metadata, "Sonia", "Condition", abx=False, reps=10000)
+
+
 if __name__ == "__main__":
     multi_abx_forest()
-    multi_treat_forest()
+    # multi_treat_forest()
+    # multi_treat_forest(random=True)
+    # sonia_forest()

@@ -4,7 +4,6 @@ from collections import defaultdict, deque
 from json import JSONEncoder
 from typing import Dict, Set, Tuple, Any
 
-import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -13,13 +12,16 @@ import wget
 from anytree import NodeMixin, PostOrderIter
 from anytree.importer import JsonImporter
 from goatools import obo_parser
-from matplotlib.patches import Rectangle, Patch
 from scipy import stats
 # from goatools.base import download_go_basic_obo, download_ncbi_associations
 # from line_profiler import LineProfiler
 from scipy.stats import mannwhitneyu, ttest_ind
 from scipy.stats.mstats import gmean
 from statsmodels.stats.multitest import fdrcorrection
+
+# TODO: add option to use another root, not BP - might be one node below or anything below
+# See if GSEA has data to compare to
+
 
 # profiler = LineProfiler()
 
@@ -75,11 +77,14 @@ mitochondrial_genes = list(mitochondrial_genes_translation.values())
 
 private = os.path.join(".", "Private")
 
+# For an absolute path (commented out, use if needed)
+# private = os.path.join("C:", "Users", "Yehonatan", "Desktop", "Master", "Git", "DEP_Compare16s", "Private")
+
 directory = private
-path = os.path.join(private, "clusters_properties\\")
+path = os.path.join(private, "clusters_properties")
 
 # Note the use of ".." to go up a directory from the current location
-data_folder = os.path.join("Data")
+data_folder = os.path.join("..", "Data", "MultiAbx-16s", "MultiAbx-RPKM-RNAseq-B6", "new normalization")
 
 
 class GeneNode(NodeMixin, JSONEncoder):  # Add Node feature
@@ -128,18 +133,148 @@ class GeneNode(NodeMixin, JSONEncoder):  # Add Node feature
 def get_ancestor(go_term):
     last = set()
     to_check = {go_term}
-    checked = set()
     while to_check:
         term = to_check.pop()
-        if term not in checked:
-            for parent in term.parents:
-                if parent.id == "GO:0008150":
-                    last.add(term)
-                else:
-                    to_check.add(parent)
-        checked.add(term)
+        for parent in term.parents:
+            if parent.id == "GO:0008150":
+                last.add(term)
+            else:
+                to_check.add(parent)
     return last
 
+
+# def convert_to_ensembl(gene_to_go_mapping):
+#     import mygene
+#     mg = mygene.MyGeneInfo()
+#     all_genes = list(gene_to_go_mapping.keys())
+#
+#     # Query the mygene API to get Ensembl IDs for the genes
+#     gene_info = mg.querymany(all_genes, scopes='symbol,refseq,uniprot', fields='ensembl.gene', species='mouse',
+#                              returnall=True)
+#
+#     ensembl_gene_to_go_mapping = {}
+#
+#     for entry in gene_info['out']:
+#         gene_symbol = entry['query']
+#
+#         ensembl_data = entry.get('ensembl', {})
+#         if isinstance(ensembl_data, list):
+#             # If there are multiple Ensembl entries, take the first one
+#             ensembl_id = ensembl_data[0].get('gene')
+#         else:
+#             ensembl_id = ensembl_data.get('gene')
+#
+#         # If there's a valid Ensembl ID, add it to the new mapping
+#         if ensembl_id:
+#             ensembl_gene_to_go_mapping[ensembl_id] = gene_to_go_mapping[gene_symbol]
+#
+#     return ensembl_gene_to_go_mapping
+
+
+# def create_gene_id_dict():
+#     import wget
+#     import gzip
+#     import shutil
+#     # from goatools.obo_parser import GODag
+#     # 1. Download necessary files using wget
+#     # Download the Gene Ontology obo file
+#     go_obo_url = 'http://purl.obolibrary.org/obo/go/go-basic.obo'
+#     wget.download(go_obo_url, directory + 'go-basic.obo')
+#     # Download the gene association file for Mus musculus from EBI
+#     association_url_ebi = 'ftp://ftp.ebi.ac.uk/pub/databases/GO/goa/MOUSE/goa_mouse.gaf.gz'
+#     wget.download(association_url_ebi, directory + 'goa_mouse.gaf.gz')
+#     # 2. Decompress the goa_mouse.gaf.gz file
+#     with gzip.open(directory + 'goa_mouse.gaf.gz', 'rb') as f_in:
+#         with open(directory + 'goa_mouse.gaf', 'wb') as f_out:
+#             shutil.copyfileobj(f_in, f_out)
+#     # 3. Clean the goa_mouse.gaf file to skip header lines
+#     with open(directory + 'goa_mouse.gaf', 'r', encoding='utf-8') as f_in:
+#         with open(directory + 'cleaned_goa_mouse.gaf', 'w', encoding='utf-8') as f_out:
+#             for line in f_in:
+#                 if not line.startswith('!'):
+#                     f_out.write(line)
+#     # # 4. Load the Gene Ontology
+#     # obodag = GODag("go-basic.obo")
+#     # 5. Manually parse the cleaned_goa_mouse.gaf file
+#     gene_to_go_mapping = {}
+#     with open(directory + 'cleaned_goa_mouse.gaf', 'r', encoding='utf-8') as f:
+#         for line in f:
+#             columns = line.strip().split('\t')
+#             if len(columns) > 5:
+#                 gene_id = columns[1]
+#                 go_term = columns[4]
+#                 if gene_id not in gene_to_go_mapping:
+#                     gene_to_go_mapping[gene_id] = []
+#                 gene_to_go_mapping[gene_id].append(go_term)
+#     return gene_to_go_mapping
+
+
+# def gene_id_to_go():
+#     import json
+#     import os
+#
+#     directory = "./Private/gene to GO"
+#     # File path
+#     file_path = directory + 'ensembl_gene_to_go_mapping.json'
+#
+#     # Check if the file exists
+#     if os.path.exists(file_path):
+#         # Load the dictionary from the JSON file
+#         with open(file_path, 'r') as infile:
+#             ensembl_gene_to_go_mapping = json.load(infile)
+#     else:
+#         gene_to_go_mapping = create_gene_id_dict()
+#
+#         print("genes:", len(gene_to_go_mapping))
+#         ensembl_gene_to_go_mapping = convert_to_ensembl(gene_to_go_mapping)
+#
+#         # # Print the first few items in the dictionary for verification
+#         # for gene_id, gos in list(ensembl_gene_to_go_mapping.items())[:5]:
+#         #     print(f"{gene_id} is associated with GO terms {', '.join(gos)}")
+#         print("ensmble:", len(ensembl_gene_to_go_mapping))
+#         # Create the mapping
+#         ensembl_gene_to_go_mapping = convert_to_ensembl(gene_to_go_mapping)
+#
+#         # Save the dictionary to a JSON file
+#         with open(file_path, 'w') as outfile:
+#             json.dump(ensembl_gene_to_go_mapping, outfile, indent=4)
+#     return ensembl_gene_to_go_mapping
+
+
+# def convert_to_go_to_ensembl(ensembl_gene_to_go_mapping):
+#     go_to_ensembl_gene_mapping = {}
+#
+#     for ensembl_id, go_terms in ensembl_gene_to_go_mapping.items():
+#         for go_term in go_terms:
+#             if go_term not in go_to_ensembl_gene_mapping:
+#                 go_to_ensembl_gene_mapping[go_term] = []
+#             go_to_ensembl_gene_mapping[go_term].append(ensembl_id)
+#
+#     return go_to_ensembl_gene_mapping
+
+
+# def go_to_gene_id():
+#     import json
+#     import os
+#
+#     directory = "./Private/gene to GO"
+#     # File path for GO to Ensembl mapping
+#     file_path = directory + 'go_to_ensembl_gene_mapping.json'
+#
+#     # Check if the file exists
+#     if os.path.exists(file_path):
+#         # Load the dictionary from the JSON file
+#         with open(file_path, 'r') as infile:
+#             go_to_ensembl_gene_mapping = json.load(infile)
+#     else:
+#         ensembl_gene_to_go_mapping = gene_id_to_go()
+#         go_to_ensembl_gene_mapping = convert_to_go_to_ensembl(ensembl_gene_to_go_mapping)
+#
+#         # Save the dictionary to a JSON file
+#         with open(file_path, 'w') as outfile:
+#             json.dump(go_to_ensembl_gene_mapping, outfile, indent=4)
+#
+#     return go_to_ensembl_gene_mapping
 
 
 def get_go(download_anyway=False):
@@ -255,60 +390,32 @@ def add_genes_names(root, genes_df):
     return root
 
 
-def precompute_spearman_matrix(df):
-    # Compute pairwise Spearman correlations for all genes
-    ranked_data = df.rank(axis=1).values
-    corr_matrix = np.corrcoef(ranked_data, rowvar=True)
-    return corr_matrix
-
-
 def get_random_corr(size, df, plot=False, times=10_000):
     # Create an array to store the random samples
     sample_genes = np.array([np.random.choice(df.index, size=size, replace=False) for _ in range(times)])
 
     # Compute the standard deviation of the selected rows, take the mean across columns, and store the result
     # random_dist = np.array([np.nanmean(np.nanstd(df.loc[sample_genes[i]], axis=0)) for i in range(times)])
-    random_corr = np.array([average_pairwise_spearman(df.loc[sample_genes[i]]) for i in range(times)])
+    random_dist = np.array([average_pairwise_spearman(df.loc[sample_genes[i]]) for i in range(times)])
 
-    ecdf_data = save_ecdf_efficient(random_corr, tail_threshold=0.05, mid_step=0.05)
-
-    # def get_random_corr(genes, df, indices, plot=False, times=10_000):
-    # Step 3: Generate random subsets and compute statistics
-    # Generate all random subsets in one operation
-    # sample_genes = np.array([
-    #     [df.index[indices[i, np.random.choice(10)]] for i in range(genes.shape[0])]
-    #     for _ in range(times)
-    # ])
-    #
-    # Step 4: Compute average pairwise Spearman correlation for each random sample
-    # random_dist = np.array([average_pairwise_spearman(df.loc[sample_genes[i]]) for i in range(times)])
-
-    # random_dist = np.array(random_dist)
-    # # Create an array to store the random samples
-    # sample_genes = np.array([np.random.choice(df.index, size=size, replace=False) for _ in range(times)])
-    #
-    # # Compute the standard deviation of the selected rows, take the mean across columns, and store the result
-    # # random_dist = np.array([np.nanmean(np.nanstd(df.loc[sample_genes[i]], axis=0)) for i in range(times)])
-    # random_dist = np.array([average_pairwise_spearman(df.loc[sample_genes[i]]) for i in range(times)])
-
-    # ecdf_data = save_ecdf_efficient(random_dist, tail_threshold=0.05, mid_step=0.05)
+    ecdf_data = save_ecdf_efficient(random_dist, tail_threshold=0.05, mid_step=0.05)
     # np.save('bootstrap_ecdf_efficient.npy', ecdf_data)
     #
     # # Later, to calculate p-value
     # ecdf_data = np.load('bootstrap_ecdf_efficient.npy', allow_pickle=True).item()
 
     if plot:
-        # log_dist = np.log(random_dist[random_dist > 0])
+        log_dist = np.log(random_dist[random_dist > 0])
         # Create a figure and axis
         fig, ax = plt.subplots(figsize=(10, 6))
 
         # Plot histogram
-        ax.hist(random_corr, bins=50, density=True, alpha=0.7, color='skyblue')
+        ax.hist(log_dist, bins=50, density=True, alpha=0.7, color='skyblue')
 
         # Plot kernel density estimation
         # sns.kdeplot(log_dist, ax=ax, color='navy')
-        mean = np.mean(random_corr)
-        std = np.std(random_corr)
+        mean = np.mean(log_dist)
+        std = np.std(log_dist)
         x = np.linspace(-1, 6, 100)
         plt.plot(x, (1 / (np.sqrt(2 * np.pi * std ** 2))) * np.exp(-np.power(x - mean, 2) / (2 * (std ** 2))))
         # Add labels and title
@@ -317,19 +424,18 @@ def get_random_corr(size, df, plot=False, times=10_000):
         ax.set_title('Distribution of Random Correlations')
 
         # Add text with mean and standard deviation
-        mean = np.mean(random_corr)
-        std = np.std(random_corr)
+        mean = np.mean(log_dist)
+        std = np.std(log_dist)
         ax.text(0.95, 0.95, f'Mean: {mean:.4f}\nStd: {std:.4f}',
                 transform=ax.transAxes, verticalalignment='top',
                 horizontalalignment='right', bbox=dict(boxstyle='round', facecolor='white', alpha=0.7))
-        # plt.title(f"size {len(genes)}")
+        plt.title(f"size {size}")
 
         # Show the plot
-        # plt.show()
-        plt.close()
+        plt.show()
+
     # Return the mean and standard deviation of the computed distribution
-    # return random_dist.mean(), random_dist.std(), random_dist
-    return random_corr.mean(), random_corr.std(), ecdf_data
+    return random_dist.mean(), random_dist.std(), ecdf_data
 
 
 def mean_mwu(anti, genes_data, expression, meta, treatment, condition):
@@ -371,7 +477,7 @@ def mean_fold(anti, genes_data, expression, meta, treatment, condition):
             fold_change[i] = np.nan
             continue
         if pbs.median():
-            fold_change[i] = abx.median() - pbs.median()
+            fold_change[i] = abx.median() / pbs.median()
         else:
             print(f"pbs median is 0 for {anti}_{treatment}_{gene}")
             fold_change[i] = np.nan
@@ -461,7 +567,7 @@ def median_fold_change(anti, genes_data, current, meta, treatment, condition):
     return z_score_difference
 
 
-def genes_data_split(anti, genes_data, current, meta, treatment, condition, threshold=0.05):
+def genes_data_split(anti, genes_data, current, meta, treatment, condition):
     enhanced, suppressed = set(), set()
     significant_genes = {}
     for gene in genes_data:
@@ -472,7 +578,7 @@ def genes_data_split(anti, genes_data, current, meta, treatment, condition, thre
             enhanced.add(gene)
         else:
             suppressed.add(gene)
-        if t_p_abx < threshold:
+        if t_p_abx < 0.05:
             significant_genes[gene] = t_p_abx
     return enhanced, suppressed, significant_genes
     # return list(enhanced), list(suppressed)
@@ -504,6 +610,10 @@ def plot_curve(random_cutoff, random_std, path):
     plt.xlabel('Genes number (group size)')
     plt.ylabel('Average mean-std of the group')
     plt.title('Values with Error Bars')
+    # verify if path exists, if not create it
+    directory = os.path.dirname(path)
+    if not os.path.exists(directory):
+        os.makedirs(directory)
     plt.savefig(path + ".png")
     # plt.show()
     plt.close()
@@ -541,76 +651,43 @@ def save_ecdf_efficient(bootstrap_results, tail_threshold=0.05, mid_step=0.05):
     return {'data': np.array(selected_data), 'ecdf': np.array(selected_ecdf)}
 
 
-def calculate_pvalue_ecdf_efficient_lower_tail(observed_value, ecdf_data):
-    """
-        Calculate the one-tailed p-value for a given observed value using pre-saved ECDF data.
-
-        Parameters:
-            observed_value (float): The observed mean pairwise correlation.
-            ecdf_data (dict): A dictionary with keys 'data' and 'ecdf' from `save_ecdf_efficient`.
-                - 'data': The sorted null distribution values.
-                - 'ecdf': The corresponding ECDF values.
-
-        Returns:
-            p_value (float): The one-tailed p-value.
-        """
-    null_data = ecdf_data['data']
+def calculate_pvalue_ecdf_efficient_lower_tail(observed_value, ecdf_data, tail):
+    data = ecdf_data['data']
     ecdf_values = ecdf_data['ecdf']
+    n = len(data)  # Number of bootstrap samples
 
-    # Find the position where the observed value would be inserted into the null data
-    idx = np.searchsorted(null_data, observed_value, side='right')
-    correction = 1 / (2 * len(null_data))
-    if idx == 0:
-        return 1.0 - correction  # Avoid p-value of 1
-    # If the observed value is greater than all null values, p-value is close to 0
-    if idx == len(null_data):
-        return correction  # Avoid p-value of 0
+    # Small continuity correction
+    correction = 1 / (2 * n)
 
-    # Get the ECDF value corresponding to the observed value
-    # Interpolate between the two nearest points
-    x0, x1 = null_data[idx - 1], null_data[idx]
-    y0, y1 = ecdf_values[idx - 1], ecdf_values[idx]
-    interpolated_ecdf = y0 + (observed_value - x0) * (y1 - y0) / (x1 - x0)
+    if observed_value >= 0:
+        # Upper-tail for positive correlations
+        idx = np.searchsorted(data, observed_value, side='right')
+        if idx == 0:
+            p_value = 1.0 - correction  # Avoid p-value of 1
+        elif idx == len(data):
+            p_value = correction  # Avoid p-value of 0
+        else:
+            # Interpolate between the two nearest points
+            x0, x1 = data[idx - 1], data[idx]
+            y0, y1 = ecdf_values[idx - 1], ecdf_values[idx]
+            p_value = 1.0 - (y0 + (observed_value - x0) * (y1 - y0) / (x1 - x0))
+            p_value = max(min(p_value, 1.0 - correction), correction)  # Apply continuity correction
+    else:
+        # Lower-tail for negative correlations
+        idx = np.searchsorted(data, observed_value, side='left')
+        if idx == 0:
+            p_value = correction  # Avoid p-value of 0
+        elif idx == len(data):
+            p_value = 1.0 - correction  # Avoid p-value of 1
+        else:
+            # Interpolate between the two nearest points
+            x0, x1 = data[idx - 1], data[idx]
+            y0, y1 = ecdf_values[idx - 1], ecdf_values[idx]
+            p_value = y0 + (observed_value - x0) * (y1 - y0) / (x1 - x0)
+            p_value = max(min(p_value, 1.0 - correction), correction)  # Apply continuity correction
 
-    # Calculate p-value as 1 - ECDF
-    p_value = 1.0 - interpolated_ecdf
-    return max(min(p_value, 1.0 - correction), correction)  # Apply continuity correction
-    # data = ecdf_data['data']
-    # ecdf_values = ecdf_data['ecdf']
-    # n = len(data)  # Number of bootstrap samples
-    #
-    # # Small continuity correction
-    # correction = 1 / (2 * n)
-    #
-    # if observed_value >= 0:
-    #     # Upper-tail for positive correlations
-    #     idx = np.searchsorted(data, observed_value, side='right')
-    #     if idx == 0:
-    #         p_value = 1.0 - correction  # Avoid p-value of 1
-    #     elif idx == len(data):
-    #         p_value = correction  # Avoid p-value of 0
-    #     else:
-    #         # Interpolate between the two nearest points
-    #         x0, x1 = data[idx - 1], data[idx]
-    #         y0, y1 = ecdf_values[idx - 1], ecdf_values[idx]
-    #         p_value = 1.0 - (y0 + (observed_value - x0) * (y1 - y0) / (x1 - x0))
-    #         p_value = max(min(p_value, 1.0 - correction), correction)  # Apply continuity correction
-    # else:
-    #     # Lower-tail for negative correlations
-    #     idx = np.searchsorted(data, observed_value, side='left')
-    #     if idx == 0:
-    #         p_value = correction  # Avoid p-value of 0
-    #     elif idx == len(data):
-    #         p_value = 1.0 - correction  # Avoid p-value of 1
-    #     else:
-    #         # Interpolate between the two nearest points
-    #         x0, x1 = data[idx - 1], data[idx]
-    #         y0, y1 = ecdf_values[idx - 1], ecdf_values[idx]
-    #         p_value = y0 + (observed_value - x0) * (y1 - y0) / (x1 - x0)
-    #         p_value = max(min(p_value, 1.0 - correction), correction)  # Apply continuity correction
-    #
-    # # Return the lower-tail p-value directly
-    # return p_value
+    # Return the lower-tail p-value directly
+    return p_value
 
 
 def average_pairwise_spearman(gene_data):
@@ -634,7 +711,7 @@ def average_pairwise_spearman(gene_data):
     upper_tri = corr_matrix.where(np.triu(np.ones(corr_matrix.shape), k=1).astype(bool))
     corr_values = upper_tri.values[np.triu_indices(corr_matrix.shape[0], k=1)]
     # corr_values = corr_matrix.where(np.triu(np.ones(corr_matrix.shape), k=1).astype(bool)).dropna().values
-    return np.nanmean(corr_values)
+    return np.mean(corr_values)
 
 
 def calculate_hypergeometric_pvalue(N, K, n, k):
@@ -656,119 +733,24 @@ def calculate_hypergeometric_pvalue(N, K, n, k):
         The p-value
     """
     # Calculate the probability of getting k or more successes
-    if k > min(K, n):
-        print(f"Error: k ({k}) is greater than min(K, n) ({(K, n)})")
     pvalue = 1 - stats.hypergeom.cdf(k - 1, N, K, n)
 
     return pvalue
 
 
-def plot_cluster(df, cluster_genes, genes_enhanced, genes_suppressed, title, id_to_name, pbs):
-    order_enhanced = [genes_enhanced[i] for i in order_subcluster(df, genes_enhanced)]
-    order_suppressed = [genes_suppressed[i] for i in order_subcluster(df, genes_suppressed)]
-    rest = list(set(cluster_genes) - set(genes_suppressed) - set(genes_enhanced))
-    order_other = [rest[i] for i in order_subcluster(df, rest)]
-    total = order_enhanced + order_suppressed + order_other
-    # sns.heatmap(df.loc[total])
-    # Define color mapping for categories
-    category_colors = {
-        'enhanced': 'firebrick',
-        'suppressed': 'dodgerblue',
-        'other': 'lightgreen'
-    }
-    # Lengths of each category for separators
-    len_enhanced = len(order_enhanced)
-    len_suppressed = len(order_suppressed)
-    len_other = len(order_other)
-
-    # Create a list of colors corresponding to each gene in 'total'
-    row_colors = (
-            [category_colors['enhanced']] * len_enhanced +
-            [category_colors['suppressed']] * len_suppressed +
-            [category_colors['other']] * len_other
-    )
-
-    to_plot = df.loc[total]
-    # zscore by pbs
-    mean_pbs = to_plot[pbs].mean(axis=1)
-    std_pbs = to_plot[pbs].std(axis=1)
-    to_plot = to_plot.sub(mean_pbs, axis=0).div(std_pbs, axis=0)
-    # to_plot = to_plot.loc[total]
-    to_plot.index = [id_to_name[gene] for gene in to_plot.index]
-    # Plotting the heatmap
-    norm = mcolors.TwoSlopeNorm(vmin=to_plot.min().min(), vcenter=0, vmax=to_plot.max().max())
-    set_plot_defaults()
-    fig, ax = plt.subplots(figsize=(6, 5))
-    sns.heatmap(to_plot, cmap='vlag', cbar_kws={'label': 'Expression Level'}, ax=ax, norm=norm)
-    # Add rectangles for each row on the left side
-    x_position = df.shape[1]  # Position at the far right of the heatmap
-    width = 0.2
-    for y, color in enumerate(row_colors):
-        rect = Rectangle(
-            (x_position + width, y),  # Slightly to the right of the last column
-            width=-width,  # Negative width to move outside the plot
-            height=1,  # Height of one row
-            facecolor=color,
-            edgecolor='none',
-            transform=ax.transData,  # Align with the data coordinates
-            clip_on=False
-        )
-        ax.add_patch(rect)
-
-    # Add horizontal lines after each category
-    ax.hlines(len_enhanced, *ax.get_xlim(), colors='k', linewidth=0.5)
-    ax.hlines(len_enhanced + len_suppressed, *ax.get_xlim(), colors='k', linewidth=0.5)
-
-    # Identify the position of PBS columns (assuming they are at the end of the dataframe)
-    pbs_start_column = df.shape[1] - len(pbs)  # Adjust this depending on where PBS starts
-    ax.vlines(pbs_start_column, *ax.get_ylim(), colors='k', linewidth=0.5, zorder=3)
-
-    # # Add colored ticks to the y-axis to indicate categories
-    # for tick_label, color in zip(ax.get_yticklabels(), row_colors):
-    #     tick_label.set_color(color)
-
-    plt.title(title.replace("_", " "))
-    # set x axis title to Category and y label to Condition
-    plt.xlabel("Sample")
-    plt.ylabel("Gene")
-    # make all fonts and sizes the same
-    # plt.rc('font', size=20)
-    # Add a legend for the color categories
-    # Add a custom legend
-    legend_patches = [
-        Patch(color='lightcoral', label='Enhanced'),
-        Patch(color='lightblue', label='Suppressed'),
-        Patch(color='lightgreen', label='Other')
-    ]
-    plt.legend(handles=legend_patches, title='Category', bbox_to_anchor=(1.2, 1.05), loc='upper left')
-
-    plt.tight_layout()
-
-    plt.savefig(f"./Private/clusters/significant_split/{title.replace(':', '_')} heatmap.png", bbox_inches='tight')
-    plt.savefig(f"./Private/clusters/significant_split/{title.replace(':', '_')} heatmap.svg", bbox_inches='tight')
-    # plt.show()
-    plt.close()
-
-
-def order_subcluster(df, sub_genes):
-    cluster = sns.clustermap(data=df.loc[sub_genes], row_cluster=True, col_cluster=False, cmap='vlag')
-    order = cluster.dendrogram_row.reordered_ind
-    plt.close()
-    return order
-
-
-def calculate_correlation(root, expression, meta, size, antis, treats, gene_to_check, exp_type, condition,
-                          remove=('N18'), significance_threshold=0.05):
+# def calculate_correlation(root, expression, meta, size, antis, treats, gene_to_check, exp_type, condition, id_to_name,
+def calculate_correlation(expression, meta, antis, treats, gene_to_check, exp_type, condition, id_to_name,
+                          remove=['N18']):
     sigmas_cutoff = 2
     print_cluster = True
     count_prints = 0
     go_to_ensmbl_dict = get_go_to_ensmusg()
     go = obo_parser.GODag(get_go())
+    size = len(go_to_ensmbl_dict)
 
     # pearson = {}
     # spearman = {}
-    df = pd.read_csv(os.path.join("Data", "transcriptome_2023-09-17-genes_norm_named.tsv"), sep="\t")
-    id_to_name = df.set_index('gene_id')['gene_name'].to_dict()
+
     dist = {}
     # expression = np.log2(gene_expression.fillna(0) + 1)
     top = pd.DataFrame()
@@ -804,14 +786,8 @@ def calculate_correlation(root, expression, meta, size, antis, treats, gene_to_c
             current_pbs = expression[pbs_samples['ID']]
             # Calculate trend for all genes for this condition
             genes_enhanced_all, genes_suppressed_all, significant_genes = genes_data_split(anti, current.index, current,
-                                                                                           meta, treatment, condition,
-                                                                                           threshold=significance_threshold)
-            # knn_enhanced = NearestNeighbors(n_neighbors=10, metric='euclidean')
-            # current_enhanced = current.loc[list(genes_enhanced_all)]
-            # knn_enhanced.fit(current_enhanced.values)
-            # knn_suppressed = NearestNeighbors(n_neighbors=10, metric='euclidean')
-            # current_suppressed = current.loc[list(genes_suppressed_all)]
-            # knn_suppressed.fit(current_suppressed.values)
+                                                                                           meta,
+                                                                                           treatment, condition)
             # significant_gos = chances_of_significance(anti, treatment, go_to_ensmbl_dict, significant_genes)
             counter = 0
             random_cutoff_enh = {}
@@ -822,6 +798,7 @@ def calculate_correlation(root, expression, meta, size, antis, treats, gene_to_c
             ecdf_storage_supp = {}
             # mwu_cutoff = {}
             for i, node in enumerate(go_to_ensmbl_dict):
+                # for i, node in enumerate(PreOrderIter(root)):
                 if len(set(go_to_ensmbl_dict[node])) == 0:
                     continue
                 if node not in go:
@@ -831,21 +808,14 @@ def calculate_correlation(root, expression, meta, size, antis, treats, gene_to_c
                 # for gene in genes_not_in_data:
                 #     node.gene_set.remove(gene)
                 go_to_ensmbl_dict[node] = [gene for gene in go_to_ensmbl_dict[node] if gene not in genes_not_in_data]
-                if no_genes:
-                    print(
-                        f"{no_genes} genes were not in all_data ({anti} {treatment}) for {go[node].name if node in go else 'NO_NAME'}")
+                # if no_genes:
+                #     print(
+                #         f"{no_genes} genes were not in all_data ({anti} {treatment}) for {go[node].name if node in go else 'NO_NAME'}")
                 # genes_enhanced, genes_suppressed = genes_data_split(anti, go_to_ensmbl_dict[node], current, meta,
                 #                                                     treatment, condition)
-                genes_enhanced = [gene for gene in go_to_ensmbl_dict[node] if
-                                  ((gene in genes_enhanced_all) and (gene in significant_genes))]
-                genes_suppressed = [gene for gene in go_to_ensmbl_dict[node] if
-                                    ((gene in genes_suppressed_all) and (gene in significant_genes))]
-                # if True:
-                # # if len(genes_enhanced) > 2 and len(genes_suppressed) > 2 and 6 < len(go_to_ensmbl_dict[node]) < 50:
-                #     order = np.concatenate([current_abx.columns, current_pbs.columns])
-                #     plot_cluster(current[order], go_to_ensmbl_dict[node], genes_enhanced, genes_suppressed, f"{anti}_{treatment}_{node}", id_to_name,
-                #                  current_pbs.columns)
-                # exit()
+                genes_enhanced = [gene for gene in go_to_ensmbl_dict[node] if gene in genes_enhanced_all]
+                genes_suppressed = [gene for gene in go_to_ensmbl_dict[node] if gene in genes_suppressed_all]
+
                 GO_significance = calculate_hypergeometric_pvalue(len(current.index), len(significant_genes),
                                                                   len(go_to_ensmbl_dict[node]),
                                                                   len([gene for gene in go_to_ensmbl_dict[node] if
@@ -865,18 +835,10 @@ def calculate_correlation(root, expression, meta, size, antis, treats, gene_to_c
                                 random_cutoff_enh[category_size], random_std_enh[category_size], ecdf_storage_enh[
                                     category_size] = get_random_corr(category_size,
                                                                      current.loc[list(genes_enhanced_all)])
-                            # _, indices = knn_enhanced.kneighbors(current.loc[genes_data].values)
-                            # mean, std, random_corr = get_random_corr(current.loc[genes_data],
-                            #                                          current_enhanced,
-                            #                                          indices)
-                            # random_cutoff[category_size] = rand_distance
-                            # random_std[category_size] = std
-                            # ecdf_storage[category_size] = ecdf_temp
+                                # random_cutoff[category_size] = rand_distance
+                                # random_std[category_size] = std
+                                # ecdf_storage[category_size] = ecdf_temp
                         else:
-                            # _, indices = knn_suppressed.kneighbors(current.loc[genes_data].values)
-                            # mean, std, random_corr = get_random_corr(current.loc[genes_data],
-                            #                                          current_suppressed,
-                            #                                          indices)
                             if category_size not in random_cutoff_supp:
                                 # calculate random groups pairwise correlation
                                 random_cutoff_supp[category_size], random_std_supp[category_size], ecdf_storage_supp[
@@ -891,9 +853,13 @@ def calculate_correlation(root, expression, meta, size, antis, treats, gene_to_c
                         correlation_abx = average_pairwise_spearman(current_abx.loc[genes_data])
                         correlation_pbs = average_pairwise_spearman(current_pbs.loc[genes_data])
 
-                        variance = np.nanmean(np.nanvar(current.loc[genes_data], axis=1))
-                        variance_abx = np.nanmean(np.nanvar(current_abx.loc[genes_data], axis=1))
-                        variance_pbs = np.nanmean(np.nanvar(current_pbs.loc[genes_data], axis=1))
+                        # variance = np.nanmean(np.nanvar(current.loc[genes_data], axis=1))
+                        # variance_abx = np.nanmean(np.nanvar(current_abx.loc[genes_data], axis=1))
+                        # variance_pbs = np.nanmean(np.nanvar(current_pbs.loc[genes_data], axis=1))
+                        # ddof=0 ensures it matches np.nanvar default behavior
+                        variance = current.loc[genes_data].var(axis=1, ddof=0).mean()
+                        variance_abx = current_abx.loc[genes_data].var(axis=1, ddof=0).mean()
+                        variance_pbs = current_pbs.loc[genes_data].var(axis=1, ddof=0).mean()
 
                         dist[anti][treatment][counter] = correlation
                         counter += 1
@@ -903,6 +869,12 @@ def calculate_correlation(root, expression, meta, size, antis, treats, gene_to_c
                         mwu = mean_mwu(anti, genes_data, current, meta, treatment, condition)
                         fold_change = mean_fold(anti, genes_data, current, meta, treatment, condition)
                         median_zscore_diff = median_fold_change(anti, genes_data, current, meta, treatment, condition)
+
+                        # log2fc = np.log2(fold_change)
+                        # Create an array of NaNs with the same shape
+                        log_fc = np.full_like(fold_change, np.nan)
+                        # Only calculate log2 where data is positive (> 0), 'out' stores the result, 'where' tells it which indices to calculate
+                        log2fc = np.log2(fold_change, out=log_fc, where=(fold_change > 0))
 
                         # if len(genes_data) > 10:
                         #     color = 'red' if distance > random_cutoff[len(genes_data)] else 'blue'
@@ -919,14 +891,8 @@ def calculate_correlation(root, expression, meta, size, antis, treats, gene_to_c
                         # parent_dist = np.nanmin(np.array([parent.dist for parent in node.parents])) if node.parents \
                         #     else np.inf
                         suf = "_enh" if enhanced else "_supp"
-                        # all_ancestors = list(get_ancestor(go[node.go_id])) if node.go_id in go else None
                         all_ancestors = list(get_ancestor(go[node])) if node in go else None
-                        if not all_ancestors:
-                            category_name = "NOT_BP"
-                        else:
-                            category_name = all_ancestors[0].name if len(all_ancestors) == 1 else [ancestor.name for
-                                                                                                   ancestor in
-                                                                                                   all_ancestors]
+                        category_name = all_ancestors[0].name if all_ancestors else "NOT_FOUND"
                         curr_storage = ecdf_storage_enh[category_size] if enhanced else ecdf_storage_supp[category_size]
                         line = {'Antibiotics': anti, 'Condition': treatment, 'GO term': node + suf,
                                 'name': f"{category_name}:{go[node].name if node in go else 'NO_NAME'}",
@@ -939,19 +905,15 @@ def calculate_correlation(root, expression, meta, size, antis, treats, gene_to_c
                                 'mean variance between samples pbs': variance_pbs, "size": len(genes_data),
                                 # 'better than random': correlation > random_cutoff_enh[
                                 #     category_size] if enhanced else correlation < random_cutoff_supp[category_size],
-                                # f'p-value correlation': (np.sum(random_corr >= correlation) + 1) / (
-                                #         len(random_corr) + 1),
                                 f'p-value correlation': calculate_pvalue_ecdf_efficient_lower_tail(correlation,
-                                                                                                   curr_storage),
-                                # tail='upper' if enhanced else 'lower'),
-                                # 'random correlation': mean,
+                                                                                                   curr_storage,
+                                                                                                   tail='upper' if enhanced else 'lower'),
                                 'random correlation': random_cutoff_enh[category_size] if enhanced else
                                 random_cutoff_supp[category_size],
-                                # 'std correlation': std,
                                 'std correlation': random_std_enh[category_size] if enhanced else random_std_supp[
                                     category_size],
                                 'median t-test p-value': median_ttest, 't-test less than 5%': median_ttest < 0.05,
-                                'normalized fold change': fold_change,  # 'log2 fold change': np.log2(fold_change),
+                                'fold change': fold_change, 'log2 fold change': log2fc,
                                 'median zscore diff': median_zscore_diff,
                                 "enhanced?": enhanced, "relative size": len(genes_data) / len(go_to_ensmbl_dict[node]),
                                 'MWU': mwu, 'MWU less than 5%': mwu < 0.05, }
@@ -990,37 +952,30 @@ def calculate_correlation(root, expression, meta, size, antis, treats, gene_to_c
             # pearson[anti][treatment][i] = node.pearson_corr
             # spearman[anti][treatment][i] = node.spearman_corr
             # return pearson, spearman
-            # if temp is empty, continue
-            # if temp.empty:
-            #     print(f"no genes for {anti} {treatment}")
-            #     continue
             print(f"{no_genes} were not in all_data ({anti} {treatment})")
-            # print(temp.head())
             temp["fdr GO significance"] = fdrcorrection(temp["GO significance"])[1]
 
             temp["fdr correlation"] = np.nan
             filtered_p_values = \
-                temp[(temp["fdr GO significance"] < 0.05) & temp["p-value correlation"].notna()][
-                    "p-value correlation"]
+                temp[(temp["fdr GO significance"] < 0.05) & temp["correlation"].notna()][
+                    "correlation"]
             # Apply FDR correction to the filtered p-values
             fdr_corrected = fdrcorrection(filtered_p_values.to_list())[1]
             # temp["fdr correlation"] = fdrcorrection(temp["p-value correlation"])[1]
-            temp.loc[
-                (temp["fdr GO significance"] < 0.05) & temp[
-                    "p-value correlation"].notna(), "fdr correlation"] = fdr_corrected
+            temp.loc[(temp["fdr GO significance"] < 0.05) & temp["correlation"].notna(), "fdr correlation"] = fdr_corrected
             # temp["fdr t-test"] = fdrcorrection(temp["treat-test p-value"])[1]
             # Filter the rows where p-value correlation is less than 0.05
-            filtered_p_values = temp[(temp["fdr correlation"] < 0.05) & temp["median t-test p-value"].notna()][
-                "median t-test p-value"]
+            filtered_p_values = temp[(temp["fdr correlation"] < 0.05) & temp["median t-test p-value"].notna()]["median t-test p-value"]
             # Apply FDR correction to the filtered p-values
             fdr_corrected = fdrcorrection(filtered_p_values)[1]
             # Create a new column with NaN values
             temp["fdr median t-test"] = np.nan
             # Assign the FDR corrected values back to the DataFrame
             # temp.loc[temp["fdr correlation"] < 0.05, "fdr median t-test"] = fdr_corrected
-            temp.loc[(temp["fdr correlation"] < 0.05) & temp[
-                "median t-test p-value"].notna(), "fdr median t-test"] = fdr_corrected
+            temp.loc[(temp["fdr correlation"] < 0.05) & temp["median t-test p-value"].notna(), "fdr median t-test"] = fdr_corrected
 
+            # verify output directory exists
+            os.makedirs(f'./Private/clusters_properties/{exp_type}/', exist_ok=True)
             temp.to_csv(f'./Private/clusters_properties/{exp_type}/top_correlated_GO_terms_{anti}_{treatment}.tsv',
                         sep='\t', index=False)
             top = pd.concat([top, temp], ignore_index=True)
@@ -1030,6 +985,179 @@ def calculate_correlation(root, expression, meta, size, antis, treats, gene_to_c
                        f'./Private/random_tightness/{exp_type}_{anti}_{treatment}_corr-vs-size_supp')
     top.to_csv(f'./Private/clusters_properties/{exp_type}/top_correlated_GO_terms.tsv', sep='\t', index=False)
     return dist
+
+
+#
+#
+# def calculate_correlation(root, expression, meta, size, antis, treats, gene_to_check, exp_type, condition,
+#                           remove=('N18')):
+#     sigmas_cutoff = 2
+#     print_cluster = True
+#     count_prints = 0
+#     # pearson = {}
+#     # spearman = {}
+#     folder_dir = f"../Data/MultiAbx-16s/MultiAbx-RPKM-RNAseq-B6/new normalization/"
+#     df = pd.read_csv(folder_dir + "transcriptome_2023-09-17-genes_norm_named.tsv", sep="\t")
+#     id_to_name = df.set_index('gene_id')['gene_name'].to_dict()
+#     dist = {}
+#     # todo: maybe replace 0s with random number and average over multiple runs to avoid a correlation of zeros
+#     # expression = np.log2(gene_expression.fillna(0) + 1)
+#     top = pd.DataFrame()
+#     for anti in antis:
+#         # pearson[anti] = {}
+#         # spearman[anti] = {}
+#         dist[anti] = {}
+#         for treatment in treats:
+#             print(f"starting {anti} {treatment}")
+#             temp = pd.DataFrame()
+#             # pearson[anti][treatment] =  np.zeros(size)
+#             # spearman[anti][treatment] = np.zeros(size)
+#             # instead of couples correlation, calculate mean (log(x+1) - mean(log(x+1)))
+#             dist[anti][treatment] = np.zeros(size)
+#             # drug = anti.lower()
+#             samples = meta[((meta['Drug'] == anti) | (meta['Drug'] == 'PBS')) & (meta[condition] == treatment)]
+#             # remove missing samples
+#             for sample in remove:
+#                 if sample in samples['ID'].values:
+#                     samples = samples.drop(samples[samples['ID'] == sample].index)
+#                     print(f"{sample} removed")
+#             iter_samples = samples['ID'].to_list()
+#             for sample in iter_samples:
+#                 if sample not in expression.columns:
+#                     print(f"{sample} not in expression")
+#                     samples = samples[samples['ID'] != sample]
+#                     meta = meta[meta['ID'] != sample]
+#                     # samples = samples.drop(samples[samples['ID'] == id].index)
+#             current = expression[samples['ID']]
+#             abx_samples = samples[samples['Drug'] == anti]
+#             pbs_samples = samples[samples['Drug'] == 'PBS']
+#             current_abx = expression[abx_samples['ID']]
+#             current_pbs = expression[pbs_samples['ID']]
+#             counter = 0
+#             random_cutoff = {}
+#             random_std = {}
+#             ecdf_storage = {}
+#             # mwu_cutoff = {}
+#             for i, node in enumerate(PreOrderIter(root)):
+#                 if len(set(node.gene_set)) == 0:
+#                     continue
+#                 genes_not_in_data = set(set(node.gene_set) - set(current.index))
+#                 no_genes = len(genes_not_in_data)
+#                 # for gene in genes_not_in_data:
+#                 #     node.gene_set.remove(gene)
+#                 node.gene_set = [gene for gene in node.gene_set if gene not in genes_not_in_data]
+#                 if no_genes:
+#                     print(f"{no_genes} genes were not in all_data ({anti} {treatment})")
+#                 genes_enhanced, genes_suppressed = genes_data_split(anti, node.gene_set, current, meta, treatment,
+#                                                                     condition)
+#
+#                 enhanced = True
+#                 for genes_data in [genes_enhanced, genes_suppressed]:
+#                     category_size = round(len(genes_data) / 10) * 10 if len(genes_data) > 50 else len(genes_data)
+#                     if category_size == 0:
+#                         continue
+#                     if category_size not in random_cutoff:
+#                         # print(f"adding {len(genes_data)} to random")
+#                         random_cutoff[category_size], random_std[category_size], ecdf_storage[category_size] = get_random_corr(category_size, current)
+#                         # random_cutoff[category_size] = rand_distance
+#                         # random_std[category_size] = std
+#                         # ecdf_storage[category_size] = ecdf_temp
+#
+#                     # mwu_range = 50
+#                     # if len(genes_data) not in mwu_cutoff:
+#                     #     print(f"adding {len(genes_data)} to mwu, rounded to {mwu_range}")
+#                     #     if len(genes_data) > mwu_range and (len(genes_data) // mwu_range) * mwu_range in mwu_cutoff:
+#                     #         print(f"{len(genes_data)} rounded to {(len(genes_data) // mwu_range) * mwu_range}")
+#                     #         mwu_cutoff[len(genes_data)] = mwu_cutoff[(len(genes_data) // mwu_range) * mwu_range]
+#                     #     else:
+#                     #         random_mwu = get_random_mwu(len(genes_data), current, anti, meta_data, treatment)
+#                     #         mwu_cutoff[len(genes_data)] = random_mwu
+#                     #         mwu_cutoff[(len(genes_data) // mwu_range) * mwu_range] = random_mwu
+#                     # mean = np.mean(current.loc[genes_data], axis=0)
+#                     distance = np.nanmean(np.nanstd(current.loc[genes_data], axis=0))
+#                     distance_abx = np.nanmean(np.nanstd(current_abx.loc[genes_data], axis=0))
+#                     distance_pbs = np.nanmean(np.nanstd(current_pbs.loc[genes_data], axis=0))
+#                     # if dist is not np.nan and distance > 0 and len(genes_data) > 0:
+#                     if distance > 0 and len(genes_data) > 0:
+#                         node.dist = distance
+#                         dist[anti][treatment][counter] = node.dist
+#                         counter += 1
+#                         # best = mean_mwu(anti, genes_data, current, meta_data, treatment)
+#                         best = geomean_t_test(anti, genes_data, current, meta, treatment, condition)
+#                         mwu = mean_mwu(anti, genes_data, current, meta, treatment, condition)
+#                         fold_change = mean_fold(anti, genes_data, current, meta, treatment, condition)
+#
+#                         # if len(genes_data) > 10:
+#                         #     color = 'red' if distance > random_cutoff[len(genes_data)] else 'blue'
+#                         #     if node.parent and node.parent.dist and node.parent.dist < node.dist:
+#                         #         color = 'hotpink' if distance > random_cutoff[len(genes_data)] else 'cyan'
+#                         #     # marker = 'o' if best > mwu_cutoff[len(genes_data)] else 'x'
+#                         #     marker = 'o' if best < 0.05 else 'x'
+#                         #     plt.scatter(best, distance, s=5, color=color, marker=marker)
+#                         # if distance > 2.5:
+#                         genes_id_to_write = [id_to_name[gene] for gene in genes_data if ((gene in id_to_name) and (len(genes_data) < 3000))]
+#                         genes_to_write = genes_data if len(genes_data) < 3000 else f"size = {len(genes_data)}"
+#                         # parent_dist = node.parent.dist if node.parent and node.parent.dist else np.nan
+#                         parent_dist = np.nanmin(np.array([parent.dist for parent in node.parents])) if node.parents \
+#                             else np.inf
+#                         # todo: better than parent in 2 sigmas (if too strict relax to 1)
+#                         suf = "_enh" if enhanced else "_supp"
+#                         line = {'Antibiotics': anti, 'Condition': treatment, 'GO term': node.go_id + suf,
+#                                 'name': f"{node.category}:{node.name}", 'genes': genes_to_write, 'gene names': genes_id_to_write,
+#                                 '\"distance\"': distance, '\"log(distance)\"': np.log2(distance),
+#                                 'distance_abx': distance_abx, 'distance_pbs': distance_pbs,
+#                                 'MWU': mwu, "size": len(genes_data),
+#                                 f"with {gene_to_check}?": gene_to_check in genes_data,
+#                                 'better than random': distance < random_cutoff[category_size],
+#                                 f'p-value distance': calculate_pvalue_ecdf_efficient_lower_tail(distance, ecdf_storage[category_size]),
+#                                 # f'better than random by {sigmas_cutoff} sigma': distance < random_cutoff[
+#                                 #     category_size] - sigmas_cutoff * random_std[category_size],
+#                                 # f'better than random by 1 sigma': distance < random_cutoff[
+#                                 #     category_size] - random_std[category_size],
+#                                 'random distance': random_cutoff[category_size],
+#                                 'std distance': random_std[category_size],
+#                                 'better than parent': node.parent and node.parent.dist and node.parent.dist < node.dist,
+#                                 'parent dist': parent_dist, 'treat-test p-value': best,
+#                                 'treat-test less than 5%': best < 0.05, 'MWU less than 5%': mwu < 0.05,
+#                                 'fold change': fold_change, 'log2 fold change': np.log2(fold_change),
+#                                 "enhanced?": enhanced, "relative size": len(genes_data) / len(node.gene_set)}
+#                         # 'better than random mwu': best > mwu_cutoff[len(genes_data)]}
+#                         # top = top.append(line, ignore_index=True)
+#                         # temp = temp.append(line, ignore_index=True)
+#                         line_df = pd.DataFrame([line])  # Convert the dictionary to a DataFrame
+#
+#                         # top = pd.concat([top, line_df], ignore_index=True)
+#                         temp = pd.concat([temp, line_df], ignore_index=True)
+#                     enhanced = False
+#             # plt.xlabel("treat-test")
+#             # plt.ylabel("genes dissimilarity")
+#             # plt.title(f"{anti}, {treatment}, cluster > 10 genes")
+#             # ax = plt.gca()
+#             # plt.text(.3, .95, 'red: worse than random, better than parent\n'
+#             #                   'blue: better than random, better than parent\n'
+#             #                   'hotpink: worse than random, worse than parent\n'
+#             #                   'cyan: better than random, worse than parent',
+#             #          ha='left', va='top', transform=ax.transAxes)
+#             # plt.savefig(f"./Private/mwu-dist/{exp_type}/{anti}_{treatment}.png")
+#             # plt.show()
+#             # plt.close()
+#             # print(
+#             #     f"{anti} {treatment} for {node.go_id}, with genes {genes_data} has 'correlation' {distance}")
+#             # node.pearson_corr =
+#             # node.spearman_corr =
+#             # pearson[anti][treatment][i] = node.pearson_corr
+#             # spearman[anti][treatment][i] = node.spearman_corr
+#             # return pearson, spearman
+#             print(f"{no_genes} were not in all_data ({anti} {treatment})")
+#             temp["fdr distance"] = fdrcorrection(temp["p-value distance"])[1]
+#             temp["fdr t-test"] = fdrcorrection(temp["treat-test p-value"])[1]
+#             temp.to_csv(f'./Private/clusters_properties/{exp_type}/top_correlated_GO_terms_{anti}_{treatment}.tsv',
+#                         sep='\t', index=False)
+#             top = pd.concat([top, temp], ignore_index=True)
+#             plot_curve(random_cutoff, random_std,
+#                        f'./Private/random_tightness/{exp_type}_{anti}_{treatment}_dist-vs-size')
+#     top.to_csv(f'./Private/clusters_properties/{exp_type}/top_correlated_GO_terms.tsv', sep='\t', index=False)
+#     return dist
 
 
 def save_median_all_conditions(meta_data, raw_data, antibiotics, treatments, condition, exp_type):
@@ -1095,6 +1223,8 @@ def impute_zeros(to_impute, meta_data, condition, run_type='', skip_if_exist=Fal
         assert np.isnan(to_impute.iloc[i, j])
         # print(f"replacing {to_impute[i][j]} with {to_impute[i][j]}")
         name = to_impute.columns[j]
+        # if name == 'C10' or name == 'C9':  # todo: should be removed?
+        #     continue
         antibiotic = meta_data[meta_data['ID'] == name]['Drug'].values[0]
         treatment = meta_data[meta_data['ID'] == name][condition].values[0]
         # print(name, antibiotic, treatment)
@@ -1117,14 +1247,11 @@ def impute_zeros(to_impute, meta_data, condition, run_type='', skip_if_exist=Fal
                 continue
             to_impute.iloc[i, j] = mean
         else:
-            to_impute.iloc[i, j] = np.nanmin(to_impute.iloc[i][mice])
+            to_impute.iloc[i, j] = np.min(to_impute.iloc[i][mice])
 
     row, col = np.where(to_impute.isnull())
-    print(
-        f"Now left with {len(row)} zeros, {set([to_impute.columns[c] for c in col])}")  # , but {all_other_are_zeros} are zeros in all other mice")
-    # replace na with 1
-    to_impute = to_impute.fillna(1)
-    # print(f"in {int(all_other_are_zeros_conditions)} conditions. {too_big} were too big")
+    print(f"Now left with {len(row)} zeros, but {all_other_are_zeros} are zeros in all other mice")
+    print(f"in {int(all_other_are_zeros_conditions)} conditions. {too_big} were too big")
     #     to_impute = impute_zeros(to_impute, meta_data)
     to_impute.to_csv(f'./Private/imputed_all_zeros_removed{run_type}.csv')
     return to_impute
@@ -1218,8 +1345,7 @@ def check_importance_missing_genes(missing_genes, transcriptome_df, meta):
     sns.heatmap(significant, annot=True, ax=ax[1], xticklabels=treatments, yticklabels=antibiotics)
     ax[1].set_title("significant genes")
     plt.savefig(f"./Private/missing_genes.png")
-    # plt.show()
-    plt.close()
+    plt.show()
     print(f"significant genes: {significant}")
     print(f"not significant genes: {not_significant}")
     return significant_set, not_significant_set
@@ -1237,28 +1363,20 @@ def plot_histogram_counts(df, type_of):
     plt.ylabel('Percentage (%)')
     plt.title(f'Histogram of Transcript Biotype Counts for {type_of}')
     plt.savefig(f"./Private/Genes/{type_of}_transcript_biotype.png", format='png', dpi=300, bbox_inches='tight')
-    # plt.show()
-    plt.close()
+    plt.show()
 
-def get_go_to_ensmusg(bio_path="http://www.ensembl.org/biomart", cache_file="go_to_ensmusg.pkl"):
-    import pickle
-    # Check if the dictionary already exists
-    if os.path.exists(cache_file):
-        print(f"Loading dictionary from {cache_file}...")
-        with open(cache_file, "rb") as f:
-            go_to_ensmusg = pickle.load(f)
-        return go_to_ensmusg
 
+def get_go_to_ensmusg():
     from biomart import BiomartServer
-    # try:
+
     # Connect to the BioMart server
-    server = BiomartServer(bio_path)
+    server = BiomartServer("http://www.ensembl.org/biomart")
+    # server = BiomartServer("https://www.uswest.ensembl.org/biomart")
+    # server = BiomartServer("https://www.useast.ensembl.org/biomart")
+    # server = BiomartServer("https://www.asia.ensembl.org/biomart")
 
     # Choose the Ensembl database
     mart = server.datasets['mmusculus_gene_ensembl']
-    # except:
-    #     print("couldn't connect to biomart, try useast.ensembl.org or asia.ensembl.org")
-    #     return
 
     # Define the attributes you want to retrieve
     attributes = [
@@ -1282,18 +1400,37 @@ def get_go_to_ensmusg(bio_path="http://www.ensembl.org/biomart", cache_file="go_
         ensembl_gene_id, go_id = decoded_line.split("\t")
         if go_id:
             go_to_ensmusg[go_id].add(ensembl_gene_id)
-    # Save the dictionary for future use
-    print(f"Saving dictionary to {cache_file}...")
-    with open(cache_file, "wb") as f:
-        pickle.dump(go_to_ensmusg, f)
     return go_to_ensmusg
 
 
-
+# def add_genes_ids(root, go_to_ensmbl_dict):
+#     empty_nodes_counter = 0
+#     added = set()
+#     for i, node in enumerate(PostOrderIter(root)):
+#         node_genes = go_to_ensmbl_dict.get(node.go_id, set())
+#         if node_genes:
+#             node.gene_set = node.gene_set.union(node_genes)
+#             added.add(node.go_id)
+#         else:
+#             empty_nodes_counter += 1
+#         if i % 500 == 0:
+#             print(f"### {i} nodes were updated ###")
+#     print(f"{empty_nodes_counter} empty nodes")
+#     print(f"Out of {len(go_to_ensmbl_dict)} mmusculus_gene_ensembl GOs, {len(added)} were added")
+#     missing = set(go_to_ensmbl_dict.keys()) - added
+#     print(f"Examples:")
+#     folder_dir = f"../Data/MultiAbx-16s/MultiAbx-RPKM-RNAseq-B6/new normalization/"
+#     df = pd.read_csv(folder_dir + "transcriptome_2023-09-17-genes_norm_named.tsv", sep="\t")
+#     id_to_name = df.set_index('gene_id')['gene_name'].to_dict()
+#     for i, go in enumerate(missing):
+#         print(go, [id_to_name[name] for name in go_to_ensmbl_dict[go] if name in id_to_name])
+#         if i == 5:
+#             break
+#     return root
 def add_genes_ids(root: Any, go_to_ensmbl_dict: Dict[str, Set[str]],
                   progress_interval: int = 1000,
                   max_examples: int = 5,
-                  gene_name_file: str = "Data/transcriptome_2023-09-17-genes_norm_named.tsv") -> Any:
+                  gene_name_file: str = "../Data/MultiAbx-16s/MultiAbx-RPKM-RNAseq-B6/new normalization/transcriptome_2023-09-17-genes_norm_named.tsv") -> Any:
     empty_nodes_counter = 0
     added: Set[str] = set()
 
@@ -1370,6 +1507,124 @@ def build_tree(download=False):
     return tree, tree_size
 
 
+def read_process_files(new=False, filter_value=0.55, merge_big_abx=True, remove_mitochondrial=True, gene_name=False):
+    partek_df = pd.read_csv(
+        "../Data/MultiAbx-16s/MultiAbx-RPKM-RNAseq-B6/New Partek_bell_all_Normalization_Normalized_counts1.csv")
+    partek_df = partek_df.set_index("Gene Symbol")
+    folder_dir = f"../Data/MultiAbx-16s/MultiAbx-RPKM-RNAseq-B6/new normalization/"
+    genome_df = pd.read_csv(folder_dir + "rpkm_named_genome-2023-09-26.tsv", sep="\t")
+    transcriptome_df = pd.read_csv(folder_dir + "transcriptome_2023-09-17-genes_norm_named.tsv", sep="\t")
+    id_to_name = dict(zip(transcriptome_df['gene_id'], transcriptome_df['gene_name']))
+
+    if gene_name:
+        # replace all empty cells in gene_name with the value in gene_id
+        genome_df["gene_name"] = genome_df.apply(
+            lambda row: row["gene_id"] if pd.isna(row["gene_name"]) else row["gene_name"], axis=1)
+        transcriptome_df["gene_name"] = transcriptome_df.apply(
+            lambda row: row["gene_id"] if pd.isna(row["gene_name"]) else row["gene_name"], axis=1)
+        genome_df = genome_df.set_index("gene_name")
+        transcriptome_df = transcriptome_df.set_index("gene_name")
+        genome_df = genome_df.drop("gene_id", axis=1)
+        transcriptome_df = transcriptome_df.drop("gene_id", axis=1)
+    else:
+        genome_df = genome_df.drop("gene_name", axis=1)
+        transcriptome_df = transcriptome_df.drop("gene_name", axis=1)
+        genome_df.rename(columns={'gene_id': 'gene_name'}, inplace=True)
+        transcriptome_df.rename(columns={'gene_id': 'gene_name'}, inplace=True)
+        genome_df = genome_df.set_index("gene_name")
+        transcriptome_df = transcriptome_df.set_index("gene_name")
+
+    # replace partek nans with 0
+    partek_df = partek_df.fillna(0)  # todo: check why
+
+    metadata = get_metadata(data_folder, type="", only_old=not new, filter=filter_value)
+
+    # change genome and transcriptome column names using metadata: replace the name which is 'Sample' to the
+    # equivalent 'ID'
+    genome_df = genome_df.rename(columns=metadata.set_index('Sample')['ID'].to_dict())
+    transcriptome_df = transcriptome_df.rename(columns=metadata.set_index('Sample')['ID'].to_dict())
+
+    # keep in all 3 DFs only columns that are in metadata["ID"].values
+    genome_df = genome_df[[col for col in genome_df.columns if col in metadata["ID"].values]]
+    transcriptome_df = transcriptome_df[[col for col in transcriptome_df.columns if col in metadata["ID"].values]]
+    partek_df = partek_df[[col for col in partek_df.columns if col in metadata["ID"].values]]
+
+    if merge_big_abx:
+        new_path = r"../Data/MultiAbx-16s/MultiAbx-RPKM-RNAseq-B6/new normalization/mRNA_NEBNext_20200908/"
+        new_data = pd.read_csv(new_path + "mRNA_NEBNext_20200908_genes_norm_named.tsv", sep="\t")
+        # sum rows with the same gene_name and drop the gene_id column
+        # new_data = new_data.drop("gene_id", axis=1).groupby("gene_name").sum()
+        new_stats = pd.read_csv(new_path + r"big_abx_stats.csv")
+        # remove all samples with "aligned" < 0.5
+        columns_to_keep = new_stats[new_stats["aligned"] > filter_value]["Sample Name"]
+        # new_data = new_data[columns_to_keep.append(pd.Series(["gene_name", "gene_id"]))]
+        columns_to_keep = columns_to_keep.tolist()  # Convert to list if needed
+        columns_to_keep.append("gene_name")  # Append to the list
+        columns_to_keep.append("gene_id")
+        new_data.columns = [col.split("_")[-1] if "gene" not in col else col for col in new_data.columns]
+        # drop columns C1, C2, C3 as they already exist in the other df
+        new_data = new_data.drop(["C1", "C2", "C3"], axis=1)
+
+        if gene_name:
+            new_data["gene_name"] = new_data.apply(
+                lambda row: row.name if pd.isna(row["gene_name"]) else row["gene_name"], axis=1)
+            new_data = new_data.set_index("gene_name").drop("gene_id", axis=1)
+        else:
+            new_data = new_data.drop("gene_name", axis=1)
+            new_data.rename(columns={'gene_id': 'gene_name'}, inplace=True)
+            new_data = new_data.set_index("gene_name")
+        transcriptome_df = pd.merge(transcriptome_df, new_data, left_index=True, right_index=True)
+        new_metadata = get_metadata(data_folder, type="", only_old=not new, filter=False)
+        new_metadata = new_metadata[new_metadata["ID"].isin(new_data.columns)]
+        metadata = pd.concat([metadata, new_metadata])
+
+    # sum rows from transcriptome and genome with the same index TODO
+    # print indexes that appear twice in genome and transcriptome
+    if len(genome_df.index[genome_df.index.duplicated()]) > 0:
+        print("indexes that appear twice in genome:\n", genome_df.index[genome_df.index.duplicated()])
+        print("and transcriptome:\n", transcriptome_df.index[transcriptome_df.index.duplicated()])
+    genome_df = genome_df.groupby(genome_df.index).sum()
+    transcriptome_df = transcriptome_df.groupby(transcriptome_df.index).sum()
+
+    # remove sparse genes (more than 50% zeros in a row):
+    # check all sparse genes (more than 50% zeros in a row) in each df, and check if the non-zero samples are the same
+    # condition, using the metadata
+    partek_zeros = partek_df[partek_df == 0].count(axis=1)
+    partek_sparse = partek_zeros[partek_zeros > 0.5 * partek_df.shape[1]]
+    genome_zeros = genome_df[genome_df == 0].count(axis=1)
+    genome_sparse = genome_zeros[genome_zeros > 0.5 * genome_df.shape[1]]
+    transcriptome_zeros = transcriptome_df[transcriptome_df == 0].count(axis=1)
+    transcriptome_sparse = transcriptome_zeros[transcriptome_zeros > 0.5 * transcriptome_df.shape[1]]
+    partek_df = partek_df.drop(partek_sparse.index)
+    genome_df = genome_df.drop(genome_sparse.index)
+    transcriptome_df = transcriptome_df.drop(transcriptome_sparse.index)
+
+    if remove_mitochondrial:
+        mito_ids = [
+            gid for gid, gname in id_to_name.items()
+            if str(gname).lower() in mitochondrial_genes
+        ]
+        # todo: see statistics of the removed genes
+        matching_indices = transcriptome_df.index[
+            transcriptome_df.index.str.lower().isin(set(mito_ids))].tolist()
+            # transcriptome_df.index.str.lower().isin(set(mitochondrial_genes))].tolist()
+
+        # remove mitochondrial genes from the dataframes
+        genome_df = genome_df.drop(matching_indices, errors='ignore')
+        transcriptome_df = transcriptome_df.drop(matching_indices, errors='ignore')
+        partek_df = partek_df.drop(matching_indices, errors='ignore')
+
+    partek_df = (partek_df * 1000000).divide(partek_df.sum(axis=0), axis=1)
+    genome_df = (genome_df * 1000000).divide(genome_df.sum(axis=0), axis=1)
+    transcriptome_df = (transcriptome_df * 1000000).divide(transcriptome_df.sum(axis=0), axis=1)
+
+    # NOTICE! drop C9, C10, C18, M13, V14 from all DFs and metadata
+    to_remove = ["C9", "C10", "C18", "M13", "V14"]
+    transcriptome_df = transcriptome_df.drop(to_remove, axis=1)
+    metadata = metadata[~metadata["ID"].isin(to_remove)]
+
+    return genome_df, metadata, partek_df, transcriptome_df
+
 
 def get_metadata(folder, type="", only_old=True, filter=0.55):
     meta = pd.read_excel(os.path.join(folder, "metadata.xlsx"))
@@ -1395,6 +1650,8 @@ def get_metadata(folder, type="", only_old=True, filter=0.55):
 
 
 def zscore_all_by_pbs(data, metadata):
+    treatments = metadata['Treatment'].unique()
+    antibiotics = [abx for abx in metadata['Drug'].unique() if abx != "PBS"]
     for treat in treatments:
         pbs = metadata[(metadata['Drug'] == "PBS") & (metadata["Treatment"] == treat)]
         # get the pbs mice data
@@ -1402,8 +1659,6 @@ def zscore_all_by_pbs(data, metadata):
         # calculate the mean and std of the pbs mice
         pbs_mean = pbs_data.mean(axis=1)
         pbs_std = pbs_data.std(axis=1)
-        # replace pbs_std 0 values by np.nanmin(pbs_std)
-        pbs_std[pbs_std == 0] = np.nanmin(pbs_std[pbs_std != 0])
         data[pbs['ID']] = data[pbs['ID']].sub(pbs_mean, axis=0)
         data[pbs['ID']] = data[pbs['ID']].div(pbs_std, axis=0)
         for anti in antibiotics:
@@ -1415,40 +1670,22 @@ def zscore_all_by_pbs(data, metadata):
     return data
 
 
-def zscore_all_by_pbs_gf(data_gf, metadata_gf):
-    pbs = metadata_gf[metadata_gf['Drug'] == "PBS"]
-    # get the pbs mice data
-    pbs_data = data_gf[pbs['ID']]
-    # calculate the mean and std of the pbs mice
-    pbs_mean = pbs_data.mean(axis=1)
-    pbs_std = pbs_data.std(axis=1)
-    # replace pbs_std 0 values by np.nanmin(pbs_std)
-    pbs_std[pbs_std == 0] = np.nanmin(pbs_std[pbs_std != 0])
-    data_gf[pbs['ID']] = data_gf[pbs['ID']].sub(pbs_mean, axis=0)
-    data_gf[pbs['ID']] = data_gf[pbs['ID']].div(pbs_std, axis=0)
-    abx = metadata_gf[metadata_gf['Drug'] == "Van"]
-    # normalize the data by the mean and std of the pbs mice: subtract pbs_mean from every row and divide by std
-    data_gf[abx['ID']] = data_gf[abx['ID']].sub(pbs_mean, axis=0)
-    data_gf[abx['ID']] = data_gf[abx['ID']].div(pbs_std, axis=0)
-    # return the normalized data
-    return data_gf
-
-
-def transform_data(data, metadata, run_type, skip=False, save=False, gf=False):
+def transform_data(data, metadata, run_type, skip=False, save=False, skip_norm=False):
     # replace all zeros with nan
     data = data.replace(0, np.nan)
     # # Remove V11 from data, and remove row ID==V11 from metadata
     # data = data.drop('V11', axis=1)
     # metadata = metadata.drop(metadata[metadata['ID'] == 'V11'].index)
     if save:
-        df = pd.read_csv(os.path.join("Data", "transcriptome_2023-09-17-genes_norm_named.tsv"), sep="\t")
+        folder_dir = f"../Data/MultiAbx-16s/MultiAbx-RPKM-RNAseq-B6/new normalization/"
+        df = pd.read_csv(folder_dir + "transcriptome_2023-09-17-genes_norm_named.tsv", sep="\t")
         id_to_name = df.set_index('gene_id')['gene_name'].to_dict()
         data['gene_original_name'] = data.index.map(id_to_name)
 
-        # data.to_csv("./Private/data process/no_v11.csv")
-        # metadata.to_csv("./Private/data process/metada.csv")
-        # # metadata.to_csv("./Private/data process/metada_no_v11.csv")
-        # data = data.drop('gene_original_name', axis=1)
+        data.to_csv("./Private/data process/no_v11.csv")
+        metadata.to_csv("./Private/data process/metada.csv")
+        # metadata.to_csv("./Private/data process/metada_no_v11.csv")
+        data = data.drop('gene_original_name', axis=1)
     data = impute_zeros(data, metadata, 'Treatment', run_type, skip_if_exist=skip)
     if save:
         data['gene_original_name'] = data.index.map(id_to_name)
@@ -1461,63 +1698,44 @@ def transform_data(data, metadata, run_type, skip=False, save=False, gf=False):
         data.to_csv("./Private/data process/imputed_log.csv")
         # data.to_csv("./Private/data process/no_v11_imputed_log.csv")
         data = data.drop('gene_original_name', axis=1)
-    # z-score by PBS
-    data = zscore_all_by_pbs(data, metadata) if not gf else zscore_all_by_pbs_gf(data, metadata)
-    if save:
-        data['gene_original_name'] = data.index.map(id_to_name)
-        data.to_csv("./Private/data process/imputed_log_zscore.csv")
-        # data.to_csv("./Private/data process/no_v11_imputed_log_zscore.csv")
-        data = data.drop('gene_original_name', axis=1)
+    if not skip_norm:
+        # z-score by PBS
+        data = zscore_all_by_pbs(data, metadata)
+        if save:
+            data['gene_original_name'] = data.index.map(id_to_name)
+            data.to_csv("./Private/data process/imputed_log_zscore.csv")
+            # data.to_csv("./Private/data process/no_v11_imputed_log_zscore.csv")
+            data = data.drop('gene_original_name', axis=1)
     return data, metadata
 
 
-def get_ensmus_dict():
-    df = pd.read_csv(os.path.join("Data", "transcriptome_2023-09-17-genes_norm_named.tsv"), sep="\t")
-    return df.set_index('gene_id')['gene_name'].to_dict()
+if __name__ == "__main__":
+    import sys
 
+    run_type = sys.argv[1]
 
-def set_plot_defaults():
-    plt.rcParams.update({
-        'font.family': 'Arial',
-        'font.size': 10,
-        'axes.labelsize': 10,
-        'axes.titlesize': 10,
-        'xtick.labelsize': 10,
-        'ytick.labelsize': 10,
-        'legend.fontsize': 10,
-    })
-    # sns.set_theme(rc=plt.rcParams)
+    genome, metadata, partek, transcriptome = read_process_files(new=False)
 
+    # save metadata and transcriptome as csv files
+    metadata.to_csv("./Private/metadata.csv", index=False)
+    transcriptome.to_csv("./Private/transcriptome.csv")
 
-# if __name__ == "__main__":
-    # import sys
-    #
-    # run_type = sys.argv[1]
-    #
-    # genome, metadata, partek, transcriptome = read_process_files(new=False)
-    #
-    # # # save metadata and transcriptome as csv files
-    # # metadata.to_csv("./Private/metadata.csv", index=False)
-    # # transcriptome.to_csv("./Private/transcriptome.csv")
-    #
-    # genes_dict = get_ensmus_dict()
-    # genes = [genes_dict[gene] for gene in transcriptome.index]
-    # to_save = transcriptome.copy()
-    # to_save = to_save.reset_index()
-    # to_save.index = genes
-    # to_save.to_csv(f"./Private/data{run_type}.csv")
-    # data = transcriptome
-    # data, metadata = transform_data(data, metadata, run_type, skip=True)
-    # genes = [genes_dict[gene] for gene in data.index]
-    # to_save = data.copy()
-    # to_save.reset_index()
-    # to_save.index = genes
-    # # save the data
-    # to_save.to_csv(f"./Private/transformed_data{run_type}.csv")
-    # metadata.to_csv(f"./Private/transformed_metadata{run_type}.csv")
-    # tree, tree_size = build_tree(True)
-    # # make any value smaller than log10(5) to be 0
-    # # data[data < np.log10(1)] = 0
-    #
+    data = transcriptome
+    data, metadata = transform_data(data, metadata, run_type, skip=False)
+    data.to_csv("./Private/transcriptome_transformed.csv")
+    tree, tree_size = build_tree(True)
+    # make any value smaller than log10(5) to be 0 todo
+    # data[data < np.log10(1)] = 0
+
+    folder_dir = f"../Data/MultiAbx-16s/MultiAbx-RPKM-RNAseq-B6/new normalization/"
+    df = pd.read_csv(folder_dir + "transcriptome_2023-09-17-genes_norm_named.tsv", sep="\t")
+    id_to_name = df.set_index('gene_id')['gene_name'].to_dict()
+
     # corr = calculate_correlation(tree, data, metadata, tree_size, antibiotics, treatments, "H2-Ab1",
-    #                              f"diff_abx{run_type}", 'Treatment')
+    corr = calculate_correlation(data, metadata, antibiotics, treatments, "H2-Ab1",
+                                 f"diff_abx{run_type}", 'Treatment', id_to_name)
+
+    # build 2 trees and compare?
+    # todo add tests for the functions
+
+    # save_median_all_conditions(metadata, data, antibiotics, treatments, "Treatment", "diff_abx" + run_type)

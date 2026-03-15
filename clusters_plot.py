@@ -7,7 +7,54 @@ import seaborn as sns
 from goatools import obo_parser
 from scipy.stats import linregress
 
-from ClusteringGO import (antibiotics, treatments, get_ancestor, get_go, private, path, set_plot_defaults)
+from ClusteringGO import (antibiotics, treatments, get_ancestor, get_go, get_metadata, transform_data,
+                          private, path, read_process_files)
+
+
+def parse_data(folder, type="", only_old=True):
+    file = f"rpkm_named_genome-2023-09-26.tsv" if type else f"transcriptome_2023-09-17-genes_norm_named.tsv"
+    df = pd.read_csv(folder + file, sep="\t")
+    # # count number of appearances of strings from "gene_name"
+    # count = Counter(data['gene_name'].values)
+    # count = Counter(data['gene_id'].values)
+    # # print all values that appear more than once
+    # print([(key, value) for key, value in count.items() if value > 1])
+    # drop gene_id column
+    df = df.drop('gene_id', axis=1)
+    # remove all samples that end with N from metadata and from data
+    if only_old:
+        df = df.drop([col for col in df.columns if col.endswith('N')], axis=1)
+    return df
+
+
+def normalize_raw_data(data_frame):
+    """
+    Normalize each column by the sum of the row
+    """
+    return data_frame.div(data_frame.sum(axis=0), axis=1)
+
+
+data_path = os.path.join("..", "Data")
+raw_data_path = os.path.join(data_path, "MultiAbx-16s", "MultiAbx-RPKM-RNAseq-B6",
+                             "Partek_bell_all_Normalized_new_controls.csv")
+# Alternative raw_data_path, commented out for example purposes:
+# raw_data_path = os.path.join(data_path, "MultiAbx-16s", "MultiAbx-RPKM-RNAseq-B6", "New Partek_bell_all_Normalization_Normalized_counts1.csv")
+# Another example, for an absolute path (commented out):
+# raw_data_path = os.path.join("C:", "Users", "Yehonatan", "Desktop", "Master", "Git", "DEP_Compare16s", "Private", "imputed_all_log_zeros_removed.csv")
+
+meta_data_path = os.path.join(data_path, "MultiAbx-16s", "MultiAbx-RPKM-RNAseq-B6", "all-samples-noC9C10-newC.csv")
+# Alternative meta_data_path, commented out for example purposes:
+# meta_data_path = os.path.join(data_path, "MultiAbx-16s", "MultiAbx-RPKM-RNAseq-B6", "all-samples-noC9.tsv")
+
+# Assuming 'path' is defined earlier in your code as shown in the previous example:
+all_path = os.path.join(path, "diff_abx", "top_correlated_GO_terms.tsv")
+
+# For 'private' directory, assuming it's defined as shown in the previous response:
+all_dir = os.path.join(private, "hist", "png", "")
+treatments = np.array(treatments)
+antibiotics = np.array(antibiotics)
+treat_color = {'IP': 'red', 'IV': 'blue', 'PO': 'green'}
+antibiotic_shape = {'Van': 'o', 'Met': '^', 'Amp': 's', 'Mix': 'd', 'Neo': 'p'}
 
 
 def z_score_by_pbs(data, abx, pbs):
@@ -28,6 +75,64 @@ def z_score_by_pbs(data, abx, pbs):
     return normalized_data
 
 
+# def plot_clusters(raw_data):
+#     for file in os.listdir(path):
+#         if file.split(".")[-1] != "tsv":
+#             continue
+#         if len(file) < 33:
+#             print(file)
+#             continue
+#         treat = (file.split("_")[-1]).split(".")[0]
+#         abx = file.split("_")[-2]
+#         # if treat != "IP" or abx != "Van":
+#         #     continue
+#         # if treat in ["IP", "IV"] or abx in ["Van", "Met"]:
+#         #     continue
+#         abx_mice = meta[(meta['Drug'] == abx) & (meta['Treatment'] == treat)]["ID"]
+#         pbs_mice = meta[(meta['Drug'] == 'PBS') & (meta['Treatment'] == treat)]["ID"]
+#         df = pd.read_csv(path + file, sep="\t").fillna(0)
+#         best = df[(df['treat-test p-value'] < 0.05) & (df['MWU'] < 0.05) & (df['size'] > 5) & (
+#                 df['better than parent'] != False) & (df['better than random correlation'] == 1)]
+#         #  & (df["less than 5%"] == 1)]
+#         # sort best by "distance" value
+#         # # sort best from highest to lowest 'distance'
+#         # best = best.sort_values(by="\"distance\"", ascending=False)
+#         best = best.sort_values(by="MWU")
+#         # best = best.sort_values(by="\"distance\"")
+#         if best.empty:
+#             print(abx, treat, "is empty")
+#             continue
+#         # iterate over rows in best dataframe and plot pcolormesh of "genes" column from raw all_data
+#         for index, row in best.iterrows():
+#             name = row["GO term"]
+#             genes = row["genes"].split(",")
+#             genes = [gene.strip("{").strip("}").strip(' ').strip("\"").strip("\'") for gene in genes]
+#             genes_df = pd.DataFrame()
+#             for i, gene in enumerate(genes):
+#                 genes_raw = raw_data[raw_data.index == gene]
+#                 genes_df = genes_df.append(pd.concat([genes_raw[abx_mice], genes_raw[pbs_mice]], axis=1))
+#             # plot gene all_data using seaborn
+#             if genes_df.empty:
+#                 print(f"{name} in {abx} {treat} is empty")
+#                 continue
+#             plt.figure(figsize=(20, 10))
+#             try:
+#                 normalized_genes = z_score_by_pbs(genes_df, abx_mice, pbs_mice)
+#                 sns.clustermap(data=normalized_genes, row_cluster=True, col_cluster=False,
+#                                cmap='vlag')
+#                 # z_score=0, cmap='vlag')
+#             except ValueError:
+#                 print(f"{name} condensed distance matrix {abx} {treat} is empty")
+#                 plt.close()
+#                 continue
+#             plt.title(f"{abx} {treat} {name}")
+#             enhance = "enhanced" if row['enhanced?'] == 1 else "suppressed"
+#             curr_path = "./Private/analysis/"
+#             plt.savefig(os.path.join(curr_path, f"{abx}_{treat}_GO{name.split(':')[1]}_{enhance}.png"))
+#             plt.show()
+#             plt.close()
+
+
 def plot_correlation(df, title, x_name, y_name, folder=""):
     df = df[df['size'] < 800]
     # plt.scatter(df[x_name], df[y_name], cmap='viridis')
@@ -37,22 +142,324 @@ def plot_correlation(df, title, x_name, y_name, folder=""):
     plt.ylabel(y_name)
     x_name = x_name.strip("\"")
     y_name = y_name.strip("\"")
-    plt.savefig(os.path.join("Private", f"{folder}{title}_{x_name}_{y_name}.png"))
-    # plt.show()
+    plt.savefig(
+        f"C:\\Users\\Yehonatan\\Desktop\\Master\\Git\\DEP_Compare16s\\Private\\{folder}{title}_{x_name}_{y_name}.png")
+    # f"C:\\Users\\Yehonatan\\Desktop\\Master\\Git\\DEP_Compare16s\\Private\\{folder}{title}{abx}_{treat}_{x_name}_{y_name}.png")
+    plt.show()
     plt.close()
+
+
+# def plot_h2ab1(data):
+#     # scatter plot for 'H2-Ab1' of distance vs. # genes in cluster (color by treatment, shape by abx)
+#     h2ab1 = data[data['with H2-Ab1?'] == 1]
+#     # plt.scatter(h2ab1['\"distance\"'], h2ab1['size'], cmap='viridis',
+#     #             marker=h2ab1['Antibiotics'].map(antibiotic_shape),
+#     #             c=h2ab1['Treatment'].map(treat_color))
+#     for i in range(len(h2ab1)):
+#         plt.scatter(h2ab1['\"distance\"'].iloc[i], h2ab1['size'].iloc[i], c=treat_color[h2ab1['Treatment'].iloc[i]],
+#                     marker=antibiotic_shape[h2ab1['Antibiotics'].iloc[i]])  # , s=15, alpha=0.5)
+#     plt.title(f"H2-Ab1 distance vs. # genes in cluster")
+#     # write on the graph a legend of each treatment and antibiotics
+#     color_name = [key for key in treat_color]
+#     marker_name = [key for key in antibiotic_shape]
+#     colors = [treat_color[key] for key in treat_color]
+#     marks = [antibiotic_shape[key] for key in antibiotic_shape]
+#     rows = [mpatches.Patch(color=colors[i]) for i in range(len(colors))]
+#     columns = [plt.plot([], [], marks[i], markerfacecolor='w',
+#                         markeredgecolor='k')[0] for i in range(len(marks))]
+#     plt.legend(columns + rows, marker_name + color_name, loc=2)
+#     plt.xlabel("cluster distance")
+#     plt.ylabel("cluster size")
+#     save_path = "C:\\Users\\Yehonatan\\Desktop\\Master\\Git\\DEP_Compare16s\\Private\\"
+#     plt.savefig(save_path + f"analysis\\h2ab1_all_distance_vs_size.png")
+#     plt.show()
+
+
+def plot_medians(df, raw, abx_mice, pbs_mice, title, show=True, save=True):
+    """
+    iterate over the clusters in df, and for each cluster get the median of the genes by the raw all_data
+    """
+    if df.empty:
+        return
+    mice = pd.concat((abx_mice['ID'], pbs_mice['ID']))
+    genes_df = pd.DataFrame()
+    # iterate over the rows of the dataframe
+    for index, row in df.iterrows():
+        # get the genes in the cluster
+        genes = row["genes"].split(",")
+        genes = [gene.strip("[").strip("]").strip("{").strip("}").strip(' ').strip("\"").strip("\'") for gene in genes]
+        if "=" in genes[0]:
+            continue
+            # TODO: fix for large GOs
+        # todo: why???
+        genes = [gene for gene in genes if gene in raw.index]
+        # get the median of the genes in the cluster
+        median = np.concatenate([np.array([row['GO term']]), np.median(raw[mice].loc[genes], axis=0)])
+        # plot the median of the genes in the cluster
+        # plt.scatter(median, row["size"], c=treat_color[row["Treatment"]], marker=antibiotic_shape[row["Antibiotics"]])
+        # genes_df = genes_df.append(pd.Series(median), ignore_index=True)
+        genes_df = pd.concat([genes_df, pd.Series(median).rename(row['GO term'], inplace=False)],
+                             ignore_index=True, axis=1)
+    genes_df = genes_df.T
+    # sns.set(rc={'figure.figsize': (15, 5)})
+    # genes_df.columns = pd.Series(['index']).append(mice)
+    genes_df.columns = pd.concat([pd.Series(['index']), pd.Series(mice)])
+    genes_df = genes_df.set_index('index').astype('f')
+    normalized_df = z_score_by_pbs(genes_df, abx_mice, pbs_mice)  # todo: note this normalization!
+    # normalized_df = genes_df
+    # drop nan rows  # todo: why are there nan rows?
+    normalized_df = normalized_df.dropna()
+    if normalized_df.shape[0] > 1:
+        cluster = sns.clustermap(data=normalized_df, row_cluster=True, col_cluster=False,
+                                 cmap='vlag')  # , xticklabels=True, yticklabels=True)
+        # z_score=0, cmap='vlag')  # , xticklabels=True, yticklabels=True)
+        order = cluster.dendrogram_row.reordered_ind
+        plt.close()
+        return normalized_df.fillna(0).iloc[order]  # .apply(zscore, axis=1)
+    return normalized_df.fillna(0)
+    # return genes_df.iloc[order]
+
+
+def plot_clusters_separately(df, raw, abx_mice, pbs_mice, title, show=True, save=True):
+    """
+    iterate over the clusters in df, and for each cluster get the median of the genes by the raw all_data
+    """
+    if df.empty:
+        return
+    mice = pd.concat((abx_mice['ID'], pbs_mice['ID']))
+    # iterate over the rows of the dataframe
+    for index, row in df.iterrows():
+        # get the genes in the cluster
+        genes = row["genes"].split(",")
+        genes = [gene.strip("{").strip("}").strip(' ').strip("\"").strip("\'") for gene in genes]
+        cluster = raw[mice].loc[genes]
+        normalized_cluster = z_score_by_pbs(cluster, abx_mice, pbs_mice)
+        sns.clustermap(data=normalized_cluster, row_cluster=True, col_cluster=False,
+                       cmap='vlag')  # , xticklabels=True, yticklabels=True)
+        # z_score=0, cmap='vlag')  # , xticklabels=True, yticklabels=True)
+        suppress = "enhanced" if row["enhanced?"] == True else "suppressed"
+        plt.title(f"{title}{row['GO term']} {row['name']} {suppress}")
+        if save:
+            plt.savefig(f"./Private/{row['Antibiotics']}_{row['Condition']}_GO_{row['GO term'][3:]}_{suppress}.png")
+        if show:
+            plt.show()
+
+
+# def plot_all():
+#     low_p = all_data[(all_data['treat-test p-value'] < 0.01)]
+#     other = all_data[(all_data['MWU'] < 0.05) & (all_data['treat-test p-value'] < 0.05) & (all_data['size'] >= 10) & (
+#             all_data['better than parent'] != False) & (all_data['better than random correlation'] == 1)]
+#     abx_data = meta[meta['Drug'] != 'PBS']
+#     pbs_data = meta[meta['Drug'] == 'PBS']
+#     abx_data = abx_data[~abx_data['ID'].astype(str).str.startswith('S')]
+#     plot_medians(low_p, raw, abx_data, pbs_data, "p-val_less_1")
+#     plot_medians(other, raw, abx_data, pbs_data, "all")
 
 
 def get_to_axis(axis, i, j, n, m):
     if n > 1 and m > 1:
         return axis[i, j]
+    elif n ==1 and m == 1:
+        return axis
     else:
         return axis[max(i, j)]
+
+
+def get_clusters_names_dict(abx, treat, exp_type, space=50):
+    file = pd.read_csv(rf"./Private/clusters_properties/{exp_type}/top_correlated_GO_terms_{abx}_{treat}.tsv", sep="\t")
+    # create a dictionary from column GO term to name
+    clusters_names_dict = dict(zip(file['GO term'], file['name']))
+    clusters_names_dict = {key: value.split(":")[1] for key, value in clusters_names_dict.items()}
+    truncated_dict = {
+        key: ' '.join(value[:value[:space].rfind(' ')].split()) + ' [...]' if len(value) > 40 else value
+        for key, value in clusters_names_dict.items()
+    }
+    return truncated_dict
+
+
+def plot_median_all_conditions(meta_data, raw_data, antibiotics, treatments, condition, exp_type, run_type="",
+                               labelsize=12, regular=True, cols_factor=6.0, rows_factor=5.0):
+    matrices = get_median_matrices(antibiotics, condition, exp_type[1:], meta_data, raw_data, treatments, regular)
+    axis = set_figure(treatments, antibiotics, cols_factor, rows_factor)
+    GO_number = pd.DataFrame(index=antibiotics, columns=treatments, data=0)
+    # for j, treat in enumerate(conditions):
+    #     for i, abx in enumerate(antibiotics):
+    for j, treat in enumerate(treatments):
+        for i, abx in enumerate(antibiotics):
+            curr_axis = get_to_axis(axis, i, j, len(treatments), len(antibiotics))
+            curr_axis.set_title(f"{abx}, {treat}")
+            cbar = False if i != 1 or j != 4 else True
+            if matrices[treat][abx] is not None:
+                cluster_names_dict = get_clusters_names_dict(abx, treat, exp_type)
+                # matrices[treat][abx].T.to_csv(f"./Private/medians/only_medians/{abx}_{treat}.csv")
+                curr_matrix = matrices[treat][abx]
+                # sort columns and put all columns that ends with N in the end
+                curr_matrix = curr_matrix.reindex(sorted(curr_matrix.columns, key=lambda x: x.endswith('N')), axis=1)
+                # sns.heatmap(curr_matrix, vmin=-2.8, vmax=2, xticklabels=True, cmap="vlag", ax=curr_axis, cbar=cbar)
+                GO_number.loc[abx, treat] = curr_matrix.shape[0]
+                sns.heatmap(curr_matrix, xticklabels=True, cmap="vlag", ax=curr_axis, cbar=cbar, vmax=5, vmin=-5)
+                # label_colors = ['blue' if label.startswith('C') else 'red' for label in curr_matrix.columns]
+                label_colors = ['blue' if meta_data[meta_data["ID"] == label]["Drug"].values == "PBS" else 'red' for
+                                label in curr_matrix.columns]
+                bar_height = 0.01 * curr_matrix.shape[0]
+                for k, color in enumerate(label_colors):
+                    bar_width = 1  # Set the width to match a column (fixed at 1)
+                    curr_axis.add_patch(
+                        plt.Rectangle((k, curr_matrix.shape[0] - bar_height), bar_width, bar_height, color=color,
+                                      fill=True))
+
+                curr_axis.yaxis.label.set_visible(False)
+                # replace y labels with cluster names, using dictionary above
+                curr_axis.set_yticklabels(
+                    [cluster_names_dict[label.get_text()] for label in curr_axis.get_yticklabels()], rotation=0)
+                tl = curr_axis.get_xticklabels()
+                curr_axis.set_xticklabels(tl, rotation=45, fontsize=labelsize)
+                tl = curr_axis.get_yticklabels()
+                curr_axis.set_yticklabels(tl, rotation=0)
+            else:
+                print(f"{abx} {treat} is empty")
+    # increase vertical space between plots
+    plt.subplots_adjust(wspace=1.5)
+    # plt.subplots_adjust(hspace=2)
+    # decrease all axis labels size
+    plt.rc('xtick', labelsize=labelsize)
+    # plt.title(" ")
+    plt.savefig(private + fr"/analysis/{exp_type}/{exp_type}{run_type} medians_of_all.png", bbox_inches='tight')
+    plt.show()
+    plt.close()
+
+    # save GO_number to a csv file
+    GO_number.to_csv(private + fr"/analysis/{exp_type}/{exp_type}{run_type} GO_number.csv")
+
+
+def get_median_matrices(antibiotics, condition, exp_type, meta_data, raw_data, treatments, regular=True):
+    # meta_data = meta_data.drop(meta_data[meta_data['ID'] == 'V16'].index).drop(meta_data[meta_data['ID'] == 'V17'].
+    #                                                                            index). \
+    #     drop(meta_data[meta_data['ID'] == 'V18'].index).drop(meta_data[meta_data['ID'] == 'N18'].index)
+    matrices = {}
+    for treat in treatments:
+        matrices[treat] = {}
+        for abx in antibiotics:
+            abx_data = meta_data[(meta_data['Drug'] == abx) & (meta_data[condition] == treat)]
+            pbs_data = meta_data[(meta_data['Drug'] == 'PBS') & (meta_data[condition] == treat)]
+            selected = get_selected_df(abx, treat, exp_type, regular)
+            # selected = df[(df['size'] >= 5) & (df['better than parent'] != False) &
+            #               (df['better than random correlation'] == 1)].sort_values(by='MWU').head(20)
+            print(abx, treat, selected.shape)
+            matrix = plot_medians(selected, raw_data, abx_data, pbs_data, f"{treat} {abx}", True, False)
+            matrices[treat][abx] = matrix
+    return matrices
+
+
+def compare_to_gsea(meta_data, antibiotics, treatments, condition, exp_type):
+    gsea_res = {
+        "Van-IP": 957 + 0,
+        "Van-IV": 35 + 0,
+        "Van-PO": 76 + 0,
+        "Mix-IP": 238 + 0,
+        "Mix-IV": 148 + 0,
+        "Mix-PO": 0,
+        "Met-IP": 649 + 0,
+        "Met-IV": 5 + 0,
+        "Met-PO": 9 + 0,
+        "Amp-IP": 460 + 0,
+        "Amp-IV": 9 + 0,
+        "Amp-PO": 805 + 0,
+        "Neo-IP": 253 + 0,
+        "Neo-IV": 380 + 0,
+        "Neo-PO": 272 + 0,
+    }
+    # gsea_res_all = {
+    #     "Van-IP": 957+135,
+    #     "Van-IV": 35+6,
+    #     "Van-PO": 76+19,
+    #     "Mix-IP": 238+37,
+    #     "Mix-IV": 148+40,
+    #     "Mix-PO": 0,
+    #     "Met-IP": 649+82,
+    #     "Met-IV": 5+0,
+    #     "Met-PO": 9+0,
+    #     "Amp-IP": 460+76,
+    #     "Amp-IV": 9+3,
+    #     "Amp-PO": 805+141,
+    #     "Neo-IP": 253+80,
+    #     "Neo-IV": 380+98,
+    #     "Neo-PO": 272+80,
+    # }
+    # gsea_res = {
+    #     "Van-IP": 87 + 999,
+    #     "Van-IV": 5 + 0,
+    #     "Van-PO": 7 + 85,
+    #     "Mix-IP": 99 + 179,
+    #     "Mix-IV": 7 + 171,
+    #     "Mix-PO": 62 + 164,
+    #     "Met-IP": 1 + 721,
+    #     "Met-IV": 1 + 3,
+    #     "Met-PO": 0 + 9,
+    #     "Amp-IP": 430 + 116,
+    #     "Amp-IV": 4 + 8,
+    #     "Amp-PO": 845 + 90,
+    #     "Neo-IP": 17 + 310,
+    #     "Neo-IV": 95 + 364,
+    #     "Neo-PO": 5 + 350,
+    # }
+    # gsea_res_pos = {
+    #     "Van-IP": 999,
+    #     "Van-IV": 0,
+    #     "Van-PO": 85,
+    #     "Mix-IP": 179,
+    #     "Mix-IV": 171,
+    #     "Mix-PO": 164,
+    #     "Met-IP": 721,
+    #     "Met-IV": 3,
+    #     "Met-PO": 9,
+    #     "Amp-IP": 116,
+    #     "Amp-IV": 8,
+    #     "Amp-PO": 90,
+    #     "Neo-IP": 310,
+    #     "Neo-IV": 364,
+    #     "Neo-PO": 350,
+    # }
+    # gsea_res_neg = {
+    #     "Van-IP": 87,
+    #     "Van-IV": 5,
+    #     "Van-PO": 7,
+    #     "Mix-IP": 99,
+    #     "Mix-IV": 7,
+    #     "Mix-PO": 62,
+    #     "Met-IP": 1,
+    #     "Met-IV": 1,
+    #     "Met-PO": 0,
+    #     "Amp-IP": 430,
+    #     "Amp-IV": 4,
+    #     "Amp-PO": 845,
+    #     "Neo-IP": 17,
+    #     "Neo-IV": 95,
+    #     "Neo-PO": 5,
+    # }
+    plt.figure(figsize=(10, 10))
+    for treat in treatments:
+        for abx in antibiotics:
+            selected = get_selected_df(abx, treat, exp_type)
+            print(abx, treat, selected.shape)
+            plt.scatter(len(selected), gsea_res[f"{abx}-{treat}"], c='blue')
+            plt.text(len(selected), gsea_res[f"{abx}-{treat}"], f"{abx}-{treat}")
+    plt.title(f"GSEA vs. our clustering")
+    plt.xlabel("our clustering")
+    plt.ylabel("GSEA")
+    plt.savefig(private + fr"/analysis/{exp_type}/GSEA_vs_our_clustering.png", bbox_inches='tight')
+    plt.show()
 
 
 def set_figure(treats, antibiotics, cols_factor=6.0, rows_factor=5.0):
     rows, cols = len(antibiotics), len(treats)
     fig, axis = plt.subplots(rows, cols, figsize=(cols_factor * cols, rows_factor * rows))
-    fig.tight_layout(pad=1.5)
+    fig.tight_layout(pad=10.0)
+    # font = {'family': 'Sans Serif',
+    #         'size': 20}
+    # plt.rc('font', **font)
+    # plt.ylabel('antibiotics', size=20)
+    # plt.xlabel('treatment', size=20)
     return axis
 
 
@@ -78,10 +485,10 @@ def get_colors_dictionary(columns):
     # import matplotlib._color_data as mcd
     # colors = list(mcd.XKCD_COLORS.values())[::40]
     # if colors_dict.txt exist, return it
-    colors_file_path = os.path.join("Private", "colors_dict.txt")
+    colors_file_path = "C:\\Users\\Yehonatan\\Desktop\\Master\\Git\\DEP_Compare16s\\Private\\colors_dict.txt"
 
-    if os.path.exists(colors_file_path):
-        # if False:
+    # if os.path.exists(colors_file_path):
+    if False:
         # if False:
         loaded_colors_dict = load_colors_dictionary_from_txt(colors_file_path)
         return loaded_colors_dict
@@ -127,8 +534,8 @@ def get_colors_dictionary(columns):
 
 
 def plot_categories(antibiotics, treatments, exp_type, extra=False, loc='lower center', anchor=(0.5, -4.7),
-                    regular=True, gsea=False):
-    size = 10
+                    regular=True, gsea=False, mix=True):
+    size = 32
     go = obo_parser.GODag(get_go())
     categories_size = get_categories_size(go)
 
@@ -155,22 +562,24 @@ def plot_categories(antibiotics, treatments, exp_type, extra=False, loc='lower c
     # print(counts_dict_suppressed)
     # print(counts_dict_enhanced)
 
-    set_plot_defaults()
+    if not all_go:
+        print(f"No GO terms found in the selected data {exp_type}.")
+        return {}, {}, []
+
     colors = get_colors_dictionary(all_go)
     enrichment = np.zeros((len(antibiotics), len(treatments)))
-    axis = set_figure(treatments, antibiotics, cols_factor=4 / len(treatments), rows_factor=8 / len(antibiotics))
+    axis = set_figure(treatments, antibiotics)
     for j, treat in enumerate(treatments):
         for i, abx in enumerate(antibiotics):
             curr_axis = get_to_axis(axis, i, j, len(treatments), len(antibiotics))
-            curr_axis.set_title(f"{abx}, {treat}", size=size)  # , weight="bold")
+            curr_axis.set_title(f"{abx}, {treat}", size=size)
             first_loc, second_loc = 0, 0.8
             enhance_enrichment = plot_bar(curr_axis, colors, counts_dict_enhanced[treat][abx], first_loc)
             suppressed_enrichment = plot_bar(curr_axis, colors, counts_dict_suppressed[treat][abx], second_loc)
-            curr_axis.set_xticks([first_loc, second_loc], ["Enh.", "Supp."])
+            curr_axis.set_xticks([first_loc, second_loc], ["enhanced", "suppressed"])
             curr_axis.set_xlim(first_loc - 0.4, second_loc + 0.4)
-            curr_axis.tick_params(axis='both', labelsize=size - 2)
-            # curr_axis.tick_params(axis='x', labelsize=size-2)
-            curr_axis.set_xticklabels(curr_axis.get_xticklabels())  # , rotation=90)
+            curr_axis.tick_params(axis='both', labelsize=size)
+            curr_axis.set_xticklabels(curr_axis.get_xticklabels(), rotation=10)
             enrichment[i, j] = enhance_enrichment + suppressed_enrichment
 
     # labels = np.append(all_go[[taxa in colors for taxa in all_go]], 'other')
@@ -184,32 +593,26 @@ def plot_categories(antibiotics, treatments, exp_type, extra=False, loc='lower c
         if len(label) > linebreak_cutoff:
             labels[i] = f"{label[:linebreak_cutoff]}\n{label[linebreak_cutoff + 1:]}"
     lower_center = get_to_axis(axis, len(antibiotics) - 1, len(treatments) // 2, len(antibiotics), len(treatments))
-    # lower_center.legend(handles, labels, loc=loc, bbox_to_anchor=anchor, fontsize=size)
+    lower_center.legend(handles, labels, loc=loc, bbox_to_anchor=anchor, fontsize=size)
     # plt.suptitle(f"Categories of GO terms", fontsize=30)
     curr_path = os.path.join(".", "Private", "analysis")
-    plt.savefig(os.path.join(curr_path, exp_type[1:], f"{exp_type[1:]} categories.png"), bbox_inches='tight', dpi=600)
-    plt.savefig(os.path.join(curr_path, exp_type[1:], f"{exp_type[1:]} categories.svg"), bbox_inches='tight', dpi=600)
-    # plt.show()
-    plt.close()
+    # verify that the path exists, if not create it
+    if not os.path.exists(os.path.join(curr_path, exp_type[1:])):
+        os.makedirs(os.path.join(curr_path, exp_type[1:]))
+    plt.savefig(os.path.join(curr_path, exp_type[1:], f"{exp_type[1:]} categories.png"), bbox_inches='tight')
+    plt.show()
 
-    # Create a separate figure just for the legend
-    fig_legend = plt.figure(figsize=(3, 4), dpi=300)
-    # Add an empty plot to attach the legend
-    ax = fig_legend.add_subplot(111)
-    ax.axis('off')  # Hide the empty plot's axes
-    # Create the legend in this separate figure
-    legend = ax.legend(handles, labels, loc='center', fontsize=size)
-    # Show the legend-only figure
-    plt.savefig(os.path.join(curr_path, exp_type[1:], f"{exp_type[1:]} categories legend.svg"), bbox_inches='tight')
-    # plt.show()
-    plt.close()
-    suppressed = plot_enrichment(antibiotics, treatments, exp_type, counts_dict_suppressed, orig_labels, "suppressed")
-    enhanced = plot_enrichment(antibiotics, treatments, exp_type, counts_dict_enhanced, orig_labels, "enhanced")
+    enhanced = plot_enrichment(exp_type, counts_dict_enhanced, orig_labels, "enhanced", mix)
+    suppressed = plot_enrichment(exp_type, counts_dict_suppressed, orig_labels, "suppressed", mix)
+
+    if extra:
+        plot_extra(all_go, antibiotics, counts_dict_enhanced, counts_dict_suppressed, curr_path, enrichment, exp_type,
+                   treatments)
 
     return enhanced, suppressed, orig_labels
 
 
-def plot_enrichment(antibiotics, treatments, param, dict, categories, title):
+def plot_enrichment(param, dict, categories, title, mix=True):
     # Flatten the nested dictionary
     flattened_dict = {}
     for outer_key, inner_dict in dict.items():
@@ -230,15 +633,17 @@ def plot_enrichment(antibiotics, treatments, param, dict, categories, title):
     df = df[categories]
 
     # if column name is longer than 35 characters, split it to two lines
-    linebreak_cutoff = 36
+    linebreak_cutoff = 35
     for i, col in enumerate(df.columns):
         if len(col) > linebreak_cutoff:
-            df = df.rename(columns={col: f"{col[:linebreak_cutoff]}\n{col[linebreak_cutoff:]}"})
+            df = df.rename(columns={col: f"{col[:linebreak_cutoff]}\n{col[linebreak_cutoff + 1:]}"})
 
-    # create a figure of size 3*3 inches, 180 dots per inch
-    set_plot_defaults()
-    plt.figure(figsize=(4, 4), dpi=300)
-    # plt.figure(figsize=(10, 8), dpi=180)
+    # create a figure of size 8x8 inches, 180 dots per inch
+    plt.figure(figsize=(10, 8), dpi=180)
+
+    # show all x and y labels
+    plt.rc('xtick', labelsize=8)
+    plt.rc('ytick', labelsize=8)
 
     # Plot a heatmap
     # # sort the columns lexicographically
@@ -247,13 +652,12 @@ def plot_enrichment(antibiotics, treatments, param, dict, categories, title):
     index = [ind for ind in list(df.index) if "Mix" not in ind]
     # sort lexically
     index.sort()
-    if type(treatments[0]) != int:
+    if mix:
         # add Mix-IP, Mix-IV, Mix-PO at the end
         index.append("Mix-IP")
         index.append("Mix-IV")
         index.append("Mix-PO")
     df = df.reindex(index)
-    df = df.T
     if param[9:] == "RASflow":
         vmax = 0.5 if title == "enhanced" else 0.15
         heatmap = sns.heatmap(df, cmap="GnBu", vmax=vmax)
@@ -272,30 +676,43 @@ def plot_enrichment(antibiotics, treatments, param, dict, categories, title):
             # Apply the customized tick labels
             cbar.set_ticklabels(tick_labels)
     else:
-        heatmap = sns.heatmap(df, cmap="GnBu")
+        sns.heatmap(df, cmap="GnBu")
     # remove y axis label
     plt.ylabel('')
     # Rotate the x-axis labels by 45 degrees
     # plt.xticks(rotation=45)
-    plt.title(f"Enrichment of GO terms\n{param[9:]} {title}")
+    plt.title(f"Enrichment of GO terms in {param[9:]} {title}")
     # plt.savefig(private + f"analysis/{param}/ enrichment {title}.png", bbox_inches='tight')
-    # Ensure all ticks are shown
-    heatmap.set_yticks(np.arange(len(df.index)) + 0.5)  # One tick per row
-    heatmap.set_yticklabels(df.index, fontsize=6)  # Force the label size
-    heatmap.set_xticks(np.arange(len(df.columns)) + 0.5)  # One tick per row
-    heatmap.set_xticklabels(df.columns, fontsize=8)  # Force the label size
-    plt.gca().yaxis.set_tick_params(pad=5)  # Add some space
-    # # show all x and y labels
-    # plt.rc('xtick', labelsize=8)
-    # plt.rc('ytick', labelsize=6)
-    # plt.tight_layout()
-
     plt.savefig(os.path.join(private, "analysis", param[1:], f"enrichment {title}.png"), bbox_inches='tight')
-    # plt.show()
-    plt.close()
-    # save df to csv
-    df.to_csv(os.path.join(private, "analysis", param[1:], f"enrichment {param[9:]} {title}.csv"))
+    plt.show()
     return df
+
+
+def plot_extra(all_go, antibiotics, counts_dict_enhanced, counts_dict_suppressed, curr_path, enrichment, exp_type,
+               treatments):
+    sorted_go = list(all_go)
+    sorted_go.sort()
+    # sorted_go.insert(0, "treatment")
+    # sorted_go.insert(0, "antibiotic")
+    sorted_go.insert(0, "condition")
+    # axis = set_figure(treatments, antibiotics)
+    categories_enh = pd.DataFrame(columns=all_go, dtype=float)
+    categories_supp = pd.DataFrame(columns=all_go, dtype=float)
+    for i, treat in enumerate(treatments):
+        for j, abx in enumerate(antibiotics):
+            # curr_axis = get_to_axis(axis, i, j, len(treatments), len(antibiotics))
+            # curr_axis.set_title(f"{abx}, {treat}", size=20)
+            # counts_dict_suppressed[treat][abx]["treatment"] = treat
+            # counts_dict_suppressed[treat][abx]["antibiotic"] = abx
+            counts_dict_suppressed[treat][abx]["condition"] = abx + " " + str(treat)
+            categories_supp = categories_supp.append(counts_dict_suppressed[treat][abx], ignore_index=True)
+            # counts_dict_enhanced[treat][abx]["treatment"] = treat
+            # counts_dict_enhanced[treat][abx]["antibiotic"] = abx
+            counts_dict_enhanced[treat][abx]["condition"] = abx + " " + str(treat)
+            categories_enh = categories_enh.append(counts_dict_enhanced[treat][abx], ignore_index=True)
+    plot_categories_altogether(categories_enh, curr_path, exp_type, "enhanced")
+    plot_categories_altogether(categories_supp, curr_path, exp_type, "suppressed")
+    plot_enrichment_heatmap(enrichment, curr_path, antibiotics, treatments, exp_type)
 
 
 def plot_categories_altogether(categories, curr_path, exp_type, title):
@@ -314,8 +731,7 @@ def plot_categories_altogether(categories, curr_path, exp_type, title):
     # make all fonts and sizes the same
     plt.rc('font', size=20)
     plt.savefig(curr_path + f"{exp_type}\\{exp_type} categories {title} heatmap.png", bbox_inches='tight')
-    # plt.show()
-    plt.close()
+    plt.show()
 
 
 def get_category_size(term, go):
@@ -356,26 +772,35 @@ def plot_enrichment_heatmap(enrichment, curr_path, antibiotics, treatments, exp_
     # make all fonts and sizes the same
     plt.rc('font', size=20)
     plt.savefig(curr_path + f"{exp_type}\\{exp_type} enrichment.png", bbox_inches='tight')
-    # plt.show()
-    plt.close()
+    plt.show()
 
 
 def get_selected_df(abx, treat, exp_type, regular=True, fdr=True):
     df = pd.read_csv(os.path.join(path, exp_type, f"top_correlated_GO_terms_{abx}_{treat}.tsv"), sep="\t")
     if fdr:
         selected = df[(df['fdr correlation'] < 0.05)]
-
+        # selected = df[(df['fdr GO significance'] < 0.05)]  #TODO
+        # selected = df[(df['GO significance'] < 0.05)]  # TODO
+        # selected = df[(df['p-value correlation'] < 0.05)]  # TODO
     elif regular:
         selected = df[(df['treat-test p-value'] < 0.05) & (df['size'] >= 2) &
-                      (df['p-value correlation'] <= 0.05)]
+                      # (df['better than parent'] != False) &
+                      # (df['better than random'] == "True")]  # todo: change to True?
+                      # (df['p-value distance'] <= 0.05)]  # todo: change to True?
+                      (df['p-value correlation'] <= 0.05)]  # todo: change to True?
     else:
         selected = df[(df['treat-test p-value'] < 0.05) & (df['size'] >= 2) &
+                      # (df['better than parent'] != False) &
+                      # (df['better than random'] == True)]
+                      # (df['p-value distance'] <= 0.05)]
                       (df['p-value correlation'] <= 0.05)]
+    # selected.to_csv(f"./Private/analysis/Diff_abxyasmin/{abx}_{treat}.tsv", sep="\t", index=False)
     return selected
 
 
 def get_selected_gsea(abx, treat, go):
     go_dict = create_go_term_dict(go)
+    # iterate over folders in folder C:\Users\Yehonatan\Desktop\Master\Git\DEP_Compare16s\Private\GSEA and find the one starts with abx-treat
     selected = pd.DataFrame()
     for folder in os.listdir(os.path.join(private, "GSEA")):
         if folder.startswith(f"{abx}{treat}"):
@@ -383,14 +808,10 @@ def get_selected_gsea(abx, treat, go):
             for file in os.listdir(os.path.join(private, "GSEA", folder)):
                 if file.startswith("gsea_report_for") and file.endswith(".tsv"):
                     results = pd.read_csv(os.path.join(private, "GSEA", folder, file), sep="\t")
-                    addition = "_enh" if "_1_" in file else "_sup"
-                    # save this table to a csv file with the name abx_treat_GSEA_addition.csv
-                    results.to_csv(os.path.join(private, "GSEA", "all_results", f"{abx}_{treat}_GSEA{addition}.tsv"),
-                                   sep="\t",
-                                   index=False)
                     # keep only rows where FDR q-val < 0.05
                     results = results[results['FDR q-val'] < 0.05]
                     results['GO term'] = results['NAME'].apply(lambda x: map_term_to_go_id(x, go_dict))
+                    addition = "_enh" if "_1_" in file else "_sup"
                     results['GO term'] = results['GO term'] + addition
                     results['enhanced?'] = "_1_" in file
                     results = results.rename(columns={"SIZE": "size"})
@@ -411,7 +832,7 @@ def get_selected_gsea(abx, treat, go):
 def create_go_term_dict(go_dag):
     # Create a dictionary to map formatted term names to GO IDs
     go_term_dict = {
-        go_term.name.lower().replace("-", " "): go_term.id
+        go_term.name.lower(): go_term.id
         for go_term in go_dag.values()
     }
     return go_term_dict
@@ -469,6 +890,143 @@ def plot_bar(curr, colors, counts_dict, x):  # , alpha=1.0):
     return bottom[0]
 
 
+def pbs_zscore(vec: pd.Series, meta_data, condition, treatment):
+    pbs_data = meta[(meta['Drug'] == 'PBS') & (meta_data[condition] == treatment)]
+    pbs = (vec[pbs_data['ID']])  # .dropna()
+    vec = (vec - pbs.mean()) / pbs.std()
+
+
+def dimension_reduction(raw_data, meta_data, condition, log=False, pca=True, title=""):
+    # raw_data = np.arcsinh(raw_data).apply(zscore, axis=1)
+    if log:
+        raw_data = np.log2(raw_data + 1)  # .apply(pbs_zscore, axis=1)
+    data = raw_data.T
+    # if 'C9' in raw_data.columns:
+    #     data = data.drop('C9')  # .apply(zscore)
+    data = data.loc[~data.index.str.startswith('S')]
+
+    # # divide each column by its median
+    # medians = data.median(axis=0)
+    # data = data.div(medians)
+
+    meta_data = meta_data.set_index('ID')
+    meta_data = meta_data.loc[~meta_data.index.str.startswith('S')]
+    # change type of condition to category
+    data[condition] = meta_data.loc[data.index][condition].astype(str)
+    data['drug'] = meta_data.loc[data.index]['Drug'].astype(str)
+    if pca:
+        data = plot_pca(data, condition)
+    for perplexity in np.linspace(5, min(data.shape[0], data.shape[1]) // 4, 3):
+        for pca_components in [5, 15]:
+            data = plot_tsne(data, condition, True, perplexity, pca_components, title)
+
+
+def plot_pca(data, condition, title=''):
+    from sklearn.decomposition import PCA
+    from sklearn.preprocessing import StandardScaler
+
+    # plot a pca of raw data in 2 dimensions
+    pca = PCA(n_components=2)
+    # pca_result = pca.fit_transform(data[data.columns[:-2]].values) # todo: should be z-scored? no removal of genes
+
+    scaler = StandardScaler()
+    data_scaled = scaler.fit_transform(data[data.columns[:-2]].values)
+    pca_result = pca.fit_transform(data_scaled)  # random_permutation = np.random.permutation(data.shape[0])
+    data['pca-one'] = pca_result[:, 0]
+    data['pca-two'] = pca_result[:, 1]
+    plt.figure(figsize=(16, 10))
+    # scatter plot pcs-one and pca-two of data where style is condition and hue is drug
+    sns.scatterplot(x="pca-one", y="pca-two", hue="drug", style=condition, legend="full", alpha=0.7, data=data, s=70)
+    plt.xlabel('Principal Component 1 ({}%)'.format(round(100 * pca.explained_variance_ratio_[0], 2)))
+    plt.ylabel('Principal Component 2 ({}%)'.format(round(100 * pca.explained_variance_ratio_[1], 2)))
+
+    # palette=sns.color_palette("hls", n_colors=len(antibiotics)), data=data)
+    # plt.xlim(-200, 100)
+    # plt.ylim(-500, 750)
+    # drop the added columns
+    data = data.drop(['pca-one', 'pca-two'], axis=1)
+    # add to plot which part of the variance is explained by each component
+    plt.title(f"PCA of raw data, {title}")
+    plt.savefig(private + "dimension reduction/" + f"PCA of raw data {title}.png")
+    plt.show()
+    plt.close()
+    return data
+
+
+def plot_pca_pairs(data, condition, title='', n_components=2):
+    from sklearn.decomposition import PCA
+    from sklearn.preprocessing import StandardScaler
+
+    # Plot PCA pairs of raw data in specified dimensions
+    pca = PCA(n_components=n_components)
+
+    # Standardize the data
+    scaler = StandardScaler()
+    data_scaled = scaler.fit_transform(data[data.columns[:-2]].values)
+    pca_result = pca.fit_transform(data_scaled)
+
+    # Create column names based on the number of components
+    pca_columns = [f'pca-{i}' for i in range(1, n_components + 1)]
+
+    # Add PCA components to the dataframe
+    for i in range(n_components):
+        data[pca_columns[i]] = pca_result[:, i]
+
+    # Create pairwise scatter plots for all combinations of PCA components
+    plt.figure(figsize=(25, 15))
+    for i in range(n_components):
+        for j in range(i + 1, n_components):
+            plt.subplot(n_components - 1, n_components - 1, i * (n_components - 1) + j)
+            sns.scatterplot(x=pca_columns[i], y=pca_columns[j], hue="drug", style=condition, legend="full", alpha=0.7,
+                            data=data, s=50)
+            plt.xlabel(f'Principal Component {i + 1} ({round(100 * pca.explained_variance_ratio_[i], 2)}%)')
+            plt.ylabel(f'Principal Component {j + 1} ({round(100 * pca.explained_variance_ratio_[j], 2)}%)')
+
+    # Additional customization if needed
+    # ...
+
+    # Add title and save the plot
+    plt.suptitle(f"PCA Pairs of raw data, {title}")
+    plt.subplots_adjust(top=0.9)
+    plt.savefig(private + "dimension reduction/" + f"PCA Pairs of raw data {title}.png")
+    plt.show()
+    plt.close()
+
+    # Drop the added columns
+    data = data.drop(pca_columns, axis=1)
+
+    return data
+
+
+def get_genes_from_df(df, go_cluster):
+    # if len(df[(df["GO term"] == go_cluster)]["genes"].values) == 0:
+    #     print(f"{go_cluster} is missing, filled by zeros")
+    #     line = np.concatenate([np.array([go_cluster]), np.zeros(data.shape[1])])
+    #     temp = temp.append(pd.Series(line), ignore_index=True)
+    #     return temp
+    return [gene.strip("{").strip("}").strip(' ').strip("\"").strip("\'") for gene in
+            df[(df["GO term"] == go_cluster)]["genes"].values[0].split(",")]
+
+
+def get_median_from_df(data, go_cluster, mice, temp, genes):
+    relevant_genes = [gene for gene in genes if gene in data.index]
+    median = np.median(data[mice].loc[relevant_genes], axis=0)
+    # normalized_median = (median - np.median(pbs_data))  # / np.std(pbs_data) todo: make sure doesn't happen elsewhere
+    line = np.concatenate([np.array([go_cluster]), median])
+    temp = temp.append(pd.Series(line), ignore_index=True)
+    return temp
+
+
+def prepare_data(anti, condition, exp_type, meta_data, treat):
+    temp = pd.DataFrame()
+    df = pd.read_csv(f'./Private/clusters_properties/{exp_type}/top_correlated_GO_terms_{anti}_{treat}.tsv',
+                     sep="\t")
+    abx = meta_data[(meta_data['Drug'] == anti) & (meta_data[condition] == treat)]
+    pbs = meta_data[(meta_data['Drug'] == 'PBS') & (meta_data[condition] == treat)]
+    mice = pd.concat((abx['ID'], pbs['ID']))
+    return abx, df, mice, pbs, temp
+
+
 def plot_tsne(data, condition, pca=True, perplexity=7, pca_components=50, title=''):
     """
     hopefully: control are clustered together
@@ -477,7 +1035,7 @@ def plot_tsne(data, condition, pca=True, perplexity=7, pca_components=50, title=
     from sklearn.manifold import TSNE
 
     tsne = TSNE(n_components=2, perplexity=perplexity,
-                method='exact')
+                method='exact')  # todo: test for other perplexities and play with other parameters
     if pca:
         # reduce the number of dimensions before tSNE to "pca_components"
         pca_50 = PCA(n_components=pca_components)
@@ -497,8 +1055,7 @@ def plot_tsne(data, condition, pca=True, perplexity=7, pca_components=50, title=
     plt.title(f"tSNE {f'with pca to {pca_components}' if pca else ''}, perplexity={perplexity} ")
     plt.savefig(
         private + "dimension reduction/tsne/" + f"PCA of raw data {title} perplexity={perplexity}, pca to {pca_components}.png")
-    # plt.show()
-    plt.close()
+    plt.show()
     data = data.drop(['tsne-2d-one', 'tsne-2d-two'], axis=1)
 
     return data
@@ -530,8 +1087,52 @@ def intersection(antibiotics, conditions, exp_type):
         venn(genes_times)
         plt.title(f"{exp_type.upper()} intersections")
         plt.savefig(os.path.join(private, "analysis", f"{exp_type} intersection.png"))
-        # plt.show()
-        plt.close()
+        plt.show()
+
+    # high_spfs = {}
+    # low_spfs = {}
+    # for conditions in [5, 11, 17, 23]:
+    #     high_spfs[conditions] = genes_times[f'Time:{conditions}'].intersection(high_spf[conditions])
+    #     low_spfs[conditions] = genes_times[f'Time:{conditions}'].intersection(low_spf[conditions])
+    #     assert len(high_spfs[conditions]) + len(low_spfs[conditions]) == len(genes_times[f'Time:{conditions}'])
+
+
+# def get_all_go_raw(condition, data, exp_type, meta_data):
+#     all = {}
+#     for anti in antibiotics:
+#         for treat in treatments:
+#             df = pd.read_csv(f'./Private/clusters_properties/{exp_type}/top_correlated_GO_terms_{anti}_{treat}.tsv',
+#                              sep="\t")
+#             clusters = df[(df['MWU'] <= 0.05) & (df["better than random correlation"] == True) &
+#                           (df["better than parent"] != False)]
+#             print(exp_type, anti, treat, clusters.shape)
+#             all[f"{condition}:{treat}"] = set(clusters["GO term"].values)
+#     for anti in antibiotics:
+#         for treat in treatments:
+#             abx, df, mice, pbs, temp = prepare_data(anti, condition, exp_type, meta_data, treat)
+#             for go_cluster in all[f"{condition}:{treat}"]:
+#                 genes = get_genes_from_df(df, go_cluster)
+#                 temp = get_median_from_df(data, go_cluster, mice, temp, genes)
+#             # if not temp.empty:
+#             #     temp = temp.set_index(0)
+#             #     clustering = sns.clustermap(data=temp.astype(np.float), row_cluster=True, col_cluster=False)
+#             #     order = clustering.dendrogram_row.reordered_ind
+#             #     plt.close()
+#             #     all[f"{condition}:{treat}"] = temp.iloc[order].index
+#     all_listed = np.array([])
+#     for treat in treatments:
+#         all_listed = np.concatenate([all_listed, np.array(list(all[f"{condition}:{treat}"]))])
+#     genes_df = pd.DataFrame()
+#     for anti in antibiotics:
+#         for treat in treatments:
+#             abx, df, mice, pbs, temp = prepare_data(anti, condition, exp_type, meta_data, treat)
+#             for go_cluster in all_listed:
+#                 genes = get_genes_from_df(df, go_cluster)
+#                 temp = get_median_from_df(data, go_cluster, mice, temp, genes)
+#             temp = temp.set_index(0)
+#             # temp.columns = mice
+#             genes_df = pd.concat([genes_df, temp], axis=1)
+#     return genes_df.astype('f').fillna(0)
 
 
 def plot_ven5(data, title, dir):
@@ -539,8 +1140,8 @@ def plot_ven5(data, title, dir):
     venn(data)
     plt.title(f"Venn Diagram for all antibiotics {title}")
     plt.savefig(private + f"analysis/{dir}/Venn5{title}.png", bbox_inches='tight')
-    # plt.show()
-    plt.close()
+    plt.show()
+    plt.show()
 
 
 def get_unique_random_genes(index, data, times=100_000):
@@ -552,13 +1153,75 @@ def get_unique_random_genes(index, data, times=100_000):
     return np.mean(mix_unique), np.std(mix_unique)
 
 
+def ven_diagrams_plot(genes, param):
+    from matplotlib_venn import venn3
+
+    intersection_list = ""
+    mix_list = ""
+    # plot 3 van5 diagrams: one for each treatment
+    for treat in treatments:
+        # # create a dictionary of the number of significant genes for each antibiotic
+        data = {abx: genes[abx][treat] for abx in antibiotics}
+        # print the intersection of the significant genes
+        sep_list = '\n'.join(set.intersection(*data.values()))
+        temp = f"intersection of significant genes for {treat}: {len(set.intersection(*data.values()))}\n" \
+               f"{sep_list}\n"
+        print(temp)
+        intersection_list += temp
+
+        # print the number of mutual significant genes for each pair of antibiotic+mix and have no overlap with any antibiotic
+        for abx in antibiotics:
+            if abx == "Mix":
+                continue
+            intersection_genes = set.intersection(data[abx], data['Mix']) - set.union(
+                *[data[abx2] for abx2 in antibiotics if ((abx2 != abx) and (abx2 != 'Mix'))])
+            temp = (f"intersection of significant genes for {treat} {abx} and Mix (only): "
+                    f"{len(intersection_genes)}\n")
+            print(temp)
+            mix_list += temp
+            # save intersection_genes to csv
+            with open(private + f"analysis/{param}/intersection_genes_{treat}_{abx}_Mix.csv", 'w') as file:
+                file.write(",".join(intersection_genes))
+        unique_genes = set(data['Mix']) - set.union(*[data[abx2] for abx2 in antibiotics if abx2 != 'Mix'])
+        unique_random = get_unique_random_genes(raw.index, data)
+        mix_list += f"Mix unique terms for {treat}: {len(unique_genes)}, {100 * len(unique_genes) / len(data['Mix'])}%\n"
+        mix_list += (fr"vs. {unique_random[0]} $\pm$ {unique_random[1]} unique size for random groups, meaning "
+                     f"{(len(unique_genes) - unique_random[0]) / unique_random[1]} SDs\n")
+        mix_list += f"{unique_genes}\n"
+        with open(private + f"analysis/{param}/Mix_unique_genes_{treat}.csv", 'w') as file:
+            file.write(",".join(unique_genes))
+        # # create a venn diagram
+        # # plot_ven5(data, treat, param)
+        # venn(data)
+        # plt.title(f"Venn Diagram for {treat}")
+        # plt.savefig(private + f"analysis/{param}/Venn5{treat}.png", bbox_inches='tight')
+        # plt.show()
+        # venn3 with Amp, Mix and each abx (with proportional areas)
+        strings_to_remove = ['Amp', 'Mix']
+        mask = np.isin(antibiotics, strings_to_remove, invert=True)
+        antibiotic_partial = antibiotics[mask]
+        for abx in antibiotic_partial:
+            curr = [genes[anti][treat] for anti in strings_to_remove + [abx]]
+            venn3(curr, set_labels=strings_to_remove + [abx])
+            plt.title(f"Venn Diagram for {treat}; {', '.join(strings_to_remove + [abx])}")
+            plt.savefig(private + f"analysis/{param}/ven/Venn3_{treat}_{abx}.png", bbox_inches='tight')
+            # plt.show()
+            plt.close()
+            random_intersection(curr, strings_to_remove + [abx], raw.index, param, treat, abx)
+    # save the intersection list
+    with open(private + f'analysis/{param}/intersection_list.txt', 'w') as file:
+        file.write(intersection_list)
+    with open(private + f'analysis/{param}/mix_list.txt', 'w') as file:
+        file.write(mix_list)
+
+
 def plot_significant_genes_number(meta, raw, antibiotics, treatments, param, condition="Treatment"):
     import pickle
     # import matplotlib
     # matplotlib.use('Agg')
 
     # import venn
-    threshold = 0.05
+    threshold = 0.05  # todo: change all to 1%?
     # if the file private + f"analysis/{param}/statistics_genes.csv" doesn't exist, create it
     # if True:
     if not os.path.exists(os.path.join(private, f"analysis/{param}/statistics_genes.csv")):
@@ -621,6 +1284,8 @@ def plot_significant_genes_number(meta, raw, antibiotics, treatments, param, con
         with open(os.path.join(private, f'analysis', param, 'statistics_genes.pkl'), 'rb') as file:
             genes = pickle.load(file)
 
+    # ven_diagrams_plot(genes, param)
+
     # rename the columns and rows
     df = df.rename_axis("Treatment", axis=1)
     df = df.rename_axis("Antibiotic", axis=0)
@@ -634,6 +1299,7 @@ def plot_significant_genes_number(meta, raw, antibiotics, treatments, param, con
     # sort by treatment
     df = df.sort_values(by='Treatment', ascending=False)
     df = df.loc[df.index[::-1]]
+    # todo: check why fold change is too small
     sns.scatterplot(
         x='Treatment',
         y='Antibiotic',
@@ -657,18 +1323,16 @@ def plot_significant_genes_number(meta, raw, antibiotics, treatments, param, con
 
     plt.savefig(os.path.join(private, "analysis", param, "genes stats.png"), bbox_inches='tight', dpi=300)
     plt.savefig(os.path.join(private, "analysis", param, "genes stats.pdf"), bbox_inches='tight')
-    plt.savefig(os.path.join(private, "analysis", param, "genes stats.svg"), bbox_inches='tight')
     # Save to a buffer
     buf = io.BytesIO()
     plt.savefig(buf, format='png')
-    # plt.savefig(buf, format='svg')
     buf.seek(0)
 
     # Use Pillow to save as TIFF
     with Image.open(buf) as img:
         img.save(os.path.join(private, "analysis", param, "genes stats.tiff"), format='TIFF')
-    # plt.show()
-    plt.close()
+    plt.show()
+    return
 
 
 def random_intersection(df, labels, genes, param, treat, abx, repeat=100_000):
@@ -700,8 +1364,7 @@ def random_intersection(df, labels, genes, param, treat, abx, repeat=100_000):
     venn3(means, set_labels=labels)
     plt.title(f"Venn Diagram of average random size for {treat}; {', '.join(labels)}")
     plt.savefig(private + f"analysis/{param}/ven/Venn3_random_mean_{treat}_{abx}.png", bbox_inches='tight')
-    # plt.show()
-    plt.close()
+    plt.show()
     stds = [np.sqrt(amp_mix_only.std() ** 2 + abx_amp_only.std() ** 2 + abx_amp_mix.std() ** 2),
             np.sqrt(amp_mix_only.std() ** 2 + abx_mix_only.std() ** 2 + abx_amp_mix.std() ** 2),
             np.std(amp_mix_only),
@@ -712,11 +1375,10 @@ def random_intersection(df, labels, genes, param, treat, abx, repeat=100_000):
     venn3(stds, set_labels=labels)
     plt.title(f"Venn Diagram of std random size for {treat}; {', '.join(labels)}")
     plt.savefig(private + f"analysis/{param}/ven/Venn3_random_std_{treat}_{abx}.png", bbox_inches='tight')
-    # plt.show()
-    plt.close()
+    plt.show()
 
 
-def plot_kde(x, y, shape, legend, jitter=0.01, point_size=20):
+def plot_kde(x, y, jitter=0.01, point_size=20):
     from scipy.stats import gaussian_kde, pearsonr
     from matplotlib.colors import LogNorm
 
@@ -729,14 +1391,13 @@ def plot_kde(x, y, shape, legend, jitter=0.01, point_size=20):
     try:
         z = gaussian_kde(xy)(xy)
     except:
-        if jitter != 0.02:
-            plot_kde(x, y, legend=legend, shape=shape, jitter=0.02)
+        plot_kde(x, y, jitter=0.01)
         return
 
     # Sort the points by density, so that the densest points are plotted last
     idx = z.argsort()
     x_jittered, y_jittered, z = x_jittered[idx], y_jittered[idx], z[idx]
-    shapes = np.array(shape)[idx]
+
     # Compute correlation coefficient and p-value
     correlation_coefficient, p_value = pearsonr(x, y)
     # slope, intercept = np.polyfit(x, y, 1)
@@ -744,49 +1405,62 @@ def plot_kde(x, y, shape, legend, jitter=0.01, point_size=20):
     correlation_text = f'Correlation: {correlation_coefficient:.2f}\nP-value: {p_value:.2e}\nSlope: {slope:.2f}'
 
     fig, ax = plt.subplots()
-    # scatter = ax.scatter(x_jittered, y_jittered, c=z, s=point_size, cmap='viridis', norm=LogNorm())
-    nique_shapes = np.unique(shapes)
-    for shape in np.unique(shapes):
-        mask = shapes == shape
-        scatter = ax.scatter(x_jittered[mask], y_jittered[mask], c=z[mask], s=point_size,
-                             cmap='viridis', norm=LogNorm(), marker=shape, label=legend[shape])
+    scatter = ax.scatter(x_jittered, y_jittered, c=z, s=point_size, cmap='viridis', norm=LogNorm())
     plt.colorbar(scatter, ax=ax, label='Density (log scale)')
 
     # Add correlation and p-value text to the plot
-    ax.text(0.55, 0.25, correlation_text, transform=ax.transAxes, fontsize=12,
+    ax.text(0.05, 0.95, correlation_text, transform=ax.transAxes, fontsize=12,
             verticalalignment='top',
             bbox=dict(boxstyle='round,pad=0.3', edgecolor='none', facecolor='white', alpha=0.6))
-    ax.legend(title="Shapes")
 
 
-def clusters_compare_mix(antibiotics, treatments, param):
+y_limits = {
+    "\"log(distance)\"": (-1.2, 0),
+    "treat-test p-value": (-0.1, 2.5),
+    "relative size": (0.1, 1.1),
+    "fold change": (-2, 3),
+    "mean variance between samples": (-0.1, 3),
+}
+x_limits = {
+    "\"log(distance)\"": (-1.2, 0),
+    "treat-test p-value": (-0.1, 2.5),
+    "relative size": (0.1, 1.1),
+    "fold change": (-1, 3),
+    "mean variance between samples": (-0.1, 3),
+}
+
+
+def clusters_compare_mix(raw, meta, antibiotics, treatments, param):
+    # TODO: same scale for all column and square plot
+    # treat = "PO"
+    # abx = "Amp"
     mix = "Mix"
     no_mix = [abx for abx in antibiotics if abx != mix]
     for treat in treatments:
         for to_mix in [True, False]:
             title = f"selected by {'mix' if to_mix else 'other abx'} threshold"
-            compare_mix_single(mix, no_mix, param, treat, "correlation",
-                               f"mean pairwise correlation of clusters in abx_{treat}",
-                               f"mean pairwise correlation of clusters in mix_{treat}",
-                               f"mean_pairwise_correlation_{treat}{'_to_mix' if to_mix else ''}", to_mix, title,
-                               jitter=0)
-            compare_mix_single(mix, no_mix, param, treat, "p-value correlation",
-                               f"mean pairwise -log(p-value) correlation of clusters in abx_{treat}",
-                               f"mean pairwise -log(p-value) of clusters in mix_{treat}",
-                               f"p_val_correlation_{treat}{'_to_mix' if to_mix else ''}", to_mix, title, jitter=0,
-                               log=True, minus=True)
-            compare_mix_single(mix, no_mix, param, treat, "GO significance",
-                               f"-log(p-value) of enrichment of significant\n genes clusters in abx_{treat}",
-                               f"-log(p-value) of enrichment of significant\n genes clusters in mix_{treat}",
-                               f"go_p_val_{treat}{'_to_mix' if to_mix else ''}", to_mix, title, jitter=0,
-                               log=True, minus=True)
+            compare_mix_single(mix, no_mix, param, treat, "\"log(distance)\"",
+                               f"log(distance) of clusters in abx_{treat}", f"log(distance) of clusters in mix_{treat}",
+                               f"log_distance_{treat}{'_to_mix' if to_mix else ''}", to_mix, title, jitter=0)
+            compare_mix_single(mix, no_mix, param, treat, "treat-test p-value",
+                               f"treat-test -log10(p-value) of clusters in abx_{treat}",
+                               f"treat-test -log10(p-value) of clusters in mix_{treat}",
+                               f"p-value_{treat}{'_to_mix' if to_mix else ''}", to_mix, title, log=True, jitter=0)
             compare_mix_single(mix, no_mix, param, treat, "relative size",
                                f"relative size of clusters in abx_{treat}", f"relative size of clusters in mix_{treat}",
                                f"relative_size_{treat}{'_to_mix' if to_mix else ''}", to_mix, title)
+            compare_mix_single(mix, no_mix, param, treat, "fold change",
+                               f"log10(fold change) in abx_{treat}", f"log10(fold change) of clusters in mix_{treat}",
+                               f"fold_change_{treat}{'_to_mix' if to_mix else ''}", to_mix, title, log=True,
+                               minus=False)
+            # compare_mix_single(mix, no_mix, param, treat, "fold change",
+            #                    f"fold change in abx_{treat}", f"-log10(fold change) of clusters in mix_{treat}",
+            #                    f"fold_change_{treat}{'_to_mix' if to_mix else ''}_no_log", to_mix, title)
             compare_mix_single(mix, no_mix, param, treat, "mean variance between samples",
                                f"mean variance between samples in abx_{treat}",
                                f"mean variance between samples of clusters in mix_{treat}",
                                f"variance_{treat}{'_to_mix' if to_mix else ''}", to_mix, title)
+    # return compare_mix
 
 
 def compare_mix_single(mix, no_mix, param, treat, col, xlabel, ylabel, title, to_mix, by, log=False, minus=True,
@@ -794,9 +1468,6 @@ def compare_mix_single(mix, no_mix, param, treat, col, xlabel, ylabel, title, to
     plt.figure(figsize=(10, 10))
     selected_log_distances = []
     compare_mix_log_distances = []
-    markers = {no_mix[0]: 'o', no_mix[1]: '^', no_mix[2]: 's', no_mix[3]: 'D'}
-    opposite = {value: key for key, value in markers.items()}
-    shapes = []
     for abx in no_mix:
         compare_mix, selected = get_selected_df_plot_mix(abx, mix, param, treat) if to_mix else get_selected_df_plot(
             abx, mix, param, treat)
@@ -806,12 +1477,8 @@ def compare_mix_single(mix, no_mix, param, treat, col, xlabel, ylabel, title, to
         # plot log(distance) of the clusters in abx_treat and mix_treat in a scatter plot
         # plt.scatter(selected["\"log(distance)\""], compare_mix["\"log(distance)\""])
         # Append log(distance) values from both DataFrames
-        shapes.extend([markers[abx]] * len(selected[col]))
         if log:
             if minus:
-                # replace the zeros from selected[col] with 1e-10 and also from compare_mix[col]
-                selected[col] = selected[col].replace(0, 1e-10)
-                compare_mix[col] = compare_mix[col].replace(0, 1e-10)
                 selected_log_distances.extend(-np.log10(selected[col]))
                 compare_mix_log_distances.extend(-np.log10(compare_mix[col]))
             else:
@@ -824,71 +1491,42 @@ def compare_mix_single(mix, no_mix, param, treat, col, xlabel, ylabel, title, to
             else:
                 selected_log_distances.extend(selected[col])
                 compare_mix_log_distances.extend(compare_mix[col])
-                # if "p-value" in xlabel:
-                #     print(abx, treat, selected[col].min(), "Mix", compare_mix[col].min())
     df = pd.DataFrame({
         'Selected': selected_log_distances,
-        'Compare Mix': compare_mix_log_distances,
-        'Shape': shapes,
+        'Compare Mix': compare_mix_log_distances
     })
     df_filtered = df.dropna(subset=['Selected', 'Compare Mix']).reset_index(drop=True)
     if len(df_filtered) != len(df):
         print(title, f"dropped {len(df) - len(df_filtered)} nans")
         df = df_filtered
     # sns.kdeplot(data=df, x='Selected', y='Compare Mix', cmap="YlGnBu", shade=True, cbar=True)
-    plot_kde(x=df['Selected'], y=df['Compare Mix'], shape=df['Shape'], jitter=jitter, legend=opposite)
-
-    x_limits = {
-        "go": (-0.1, 3),
-        "p-value correlation": (-0.1, 1.1),
-        "GO significance": (-0.1, 1.1),
-    }
-    y_limits = x_limits
-    if col not in x_limits:
-        min_val = 0
-        max_val = 1.1
-        plt.xlim(min_val, max_val)
-        plt.ylim(min_val, max_val)
-    elif "p-value" in col:  # or
-        min_val = -0.1
-        max_val = 3.5
-        plt.xlim(min_val, max_val)
-        plt.ylim(min_val, max_val)
-    elif "significance" in col:  # or
-        min_val = -0.1
-        max_val = 5
-        plt.xlim(min_val, max_val)
-        plt.ylim(min_val, max_val)
-    else:
-        min_val = df['Selected'].min()
-        max_val = df['Selected'].max()
+    plot_kde(x=df['Selected'], y=df['Compare Mix'], jitter=jitter)
+    # Add the y = x line
+    # min_val = min(df['Selected'].min(), df['Compare Mix'].min())
+    # max_val = max(df['Selected'].max(), df['Compare Mix'].max())
+    min_val = df['Selected'].min()
+    max_val = df['Selected'].max()
     plt.plot([min_val, max_val], [min_val, max_val], 'k--', label='y = x')
     plt.legend()
+    plt.xlim(x_limits[col])
+    plt.ylim(y_limits[col])
     plt.xlabel(xlabel)
     plt.ylabel(ylabel)
     plt.title(f"Comparison of clusters in abx_{treat} and {mix}_{treat},\n{by}")
-
-    plt.tight_layout()
-    # if ./Private/met_comp does not exist, create it
-    if not os.path.exists("./Private/met_comp"):
-        os.makedirs("./Private/met_comp")
+    plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+    plt.axis('square')
     plt.savefig(f"./Private/met_comp/{title}.png")
-    plt.savefig(f"./Private/met_comp/{title}.svg")
     # plt.show()
     plt.close()
 
 
 def get_selected_df_plot(abx, mix, param, treat):
     # read the clusters data for abx_treat and mix_treat
-    df = pd.read_csv(os.path.join("Data", "clusters_properties", f"top_correlated_GO_terms_{abx}_{treat}.tsv"),
-                     sep="\t")
-    df_mix = pd.read_csv(os.path.join("Data", "clusters_properties", f"top_correlated_GO_terms_{mix}_{treat}.tsv"),
-                         sep="\t")
+    df = pd.read_csv(path + f"\\{param}\\top_correlated_GO_terms_{abx}_{treat}.tsv", sep="\t")
+    df_mix = pd.read_csv(path + f"\\{param}\\top_correlated_GO_terms_{mix}_{treat}.tsv", sep="\t")
     # get the selected clusters for abx_treat
-    # selected = df[(df['treat-test p-value'] <= 0.05) & (df['size'] >= 2) & (
-    #         df['p-value distance'] <= 0.05)]
-    selected = df[(df['fdr correlation'] < 0.05)]
-
+    selected = df[(df['treat-test p-value'] <= 0.05) & (df['size'] >= 2) & (
+            df['p-value distance'] <= 0.05)]
     # df['better than parent'] is not False) & (df['better than random'] is not False)]
     # get the selected clusters for mix_treat
     compare_mix = df_mix[df_mix["GO term"].isin(selected["GO term"])]
@@ -899,12 +1537,12 @@ def get_selected_df_plot(abx, mix, param, treat):
 
 def get_selected_df_plot_mix(abx, mix, param, treat):
     # read the clusters data for abx_treat and mix_treat
-    df_other = pd.read_csv(os.path.join("Data", "clusters_properties", f"top_correlated_GO_terms_{abx}_{treat}.tsv"),
-                           sep="\t")
-    df = pd.read_csv(os.path.join("Data", "clusters_properties", f"top_correlated_GO_terms_{mix}_{treat}.tsv"),
-                     sep="\t")
+    df_other = pd.read_csv(path + f"\\{param}\\top_correlated_GO_terms_{abx}_{treat}.tsv", sep="\t")
+    df = pd.read_csv(path + f"\\{param}\\top_correlated_GO_terms_{mix}_{treat}.tsv", sep="\t")
     # get the selected clusters for abx_treat
-    selected = df[(df['fdr correlation'] < 0.05)]
+    selected = df[(df['treat-test p-value'] <= 0.05) & (df['size'] >= 2) & (
+            df['p-value distance'] <= 0.05)]
+    # df['better than parent'] is not False) & (df['better than random'] is not False)]
     # get the selected clusters for mix_treat
     compare_other = df_other[df_other["GO term"].isin(selected["GO term"])]
     # keep in selected only the clusters that are in compare_mix
@@ -934,9 +1572,7 @@ def compare_significance_go(param):
 
 def plot_multiabx_scatter(param, significant_genes, x, y):
     # plot #significant_genes vs go_number
-    set_plot_defaults()
     plt.figure(figsize=(5, 5))
-    # plt.figure(figsize=(3, 3))
     sns.scatterplot(x=x, y=y, hue="Antibiotic", style="Treatment", data=significant_genes, s=30)
     plt.xlabel(x)
     plt.ylabel(y)
@@ -964,7 +1600,40 @@ def plot_multiabx_scatter(param, significant_genes, x, y):
     plt.xscale("linear")
     # plt.title("Number of significant genes vs number of significant GO terms")
     plt.savefig(private + f"/analysis/{param}/{x}_vs_{y}.png")
-    plt.savefig(private + f"/analysis/{param}/{x}_vs_{y}.svg")
+    # plt.show()
+    plt.close()
+
+
+def effective_number_genes(data, metadata):
+    effective_number_of_genes = pd.DataFrame(index=np.append(antibiotics, "PBS"), columns=treatments, data=0)
+    hill_0 = pd.DataFrame(index=np.append(antibiotics, "PBS"), columns=treatments, data=0)
+    hill_inf = pd.DataFrame(index=np.append(antibiotics, "PBS"), columns=treatments, data=0)
+    # normalize each column to sum to 1
+    data = data.div(data.sum(axis=0), axis=1)
+    for treat in treatments:
+        pbs = metadata[(metadata["Drug"] == "PBS") & (metadata["Treatment"] == treat)]["ID"]
+        genes = data[pbs]
+        effective_number_of_genes.loc["PBS", treat] = np.exp(np.mean(-np.sum(genes * np.log(genes), axis=0)))
+        hill_0.loc["PBS", treat] = np.mean(np.sum(genes > 0, axis=0))
+        hill_inf.loc["PBS", treat] = np.mean(genes.max(axis=0))
+        for abx in antibiotics:
+            samples = meta[(metadata["Drug"] == abx) & (metadata["Treatment"] == treat)]["ID"]
+            # compute Hill number 1 for all samples in this condition
+            genes = data[samples]
+            effective_number_of_genes.loc[abx, treat] = np.exp(np.mean(-np.sum(genes * np.log(genes), axis=0)))
+            hill_0.loc[abx, treat] = np.mean(np.sum(genes > 0, axis=0))
+            hill_inf.loc[abx, treat] = np.mean(genes.max(axis=0))
+    plot_heatmap_multiabx(effective_number_of_genes, "effective")
+    plot_heatmap_multiabx(hill_0, "richness")
+    plot_heatmap_multiabx(hill_inf, "inf")
+
+
+def plot_heatmap_multiabx(effective_number_of_genes, title):
+    # plot heatmap of effective_number_of_genes
+    plt.figure(figsize=(10, 10))
+    sns.heatmap(effective_number_of_genes, cmap="Blues")
+    plt.title(f"{title} number of genes")
+    plt.savefig(private + f"/analysis/{title}_number_of_genes.png")
     # plt.show()
     plt.close()
 
@@ -1048,7 +1717,7 @@ def plot_clusters_heatmap(all_samples, df, raw, abx, normalization):
         plt.title(f"{row['GO term']}\n{row['name']}")
         plt.tight_layout()  # Adjust the layout to prevent cutting off labels
         plt.savefig(f"./Private/selected_clusters/{abx}_{row['GO term'].replace(':', '_')}.png")
-        # plt.show()
+        plt.show()
         plt.close()
 
 
@@ -1073,7 +1742,6 @@ def add_significance_indicators(ax, x, observed_values, p_values, y_offset=0.005
     y_offset : float, optional
         Vertical offset for placing the significance indicators
     """
-
     # from scipy import stats
 
     # Function to determine significance symbol
@@ -1111,21 +1779,18 @@ def add_significance_indicators(ax, x, observed_values, p_values, y_offset=0.005
 
 def plot_correlation_gsea(gsea, our):
     # Create a single figure with 4 subplots
-    set_plot_defaults()
-    fig, axes = plt.subplots(2, 2, figsize=(10, 10))
-    # fig, axes = plt.subplots(2, 2, figsize=(3, 3))
-    fig.suptitle("Pearson and Spearman Correlations for Enhanced and Suppressed", fontsize=14)
-    labels_order = gsea[0].columns
+    fig, axes = plt.subplots(2, 2, figsize=(16, 10))
+    fig.suptitle("Pearson vs. Spearman Correlations for Enhanced and Suppressed", fontsize=14)
+
     # Iterate over directions and plot correlations
     for j, direction in enumerate(["enhanced", "suppressed"]):
-        df1 = gsea[j][labels_order]
-        df2 = our[j][labels_order]
+        df1 = gsea[j]
+        df2 = our[j]
 
         # Dictionaries to store row and column correlations
         correlations = {"row": {"Pearson": [], "Spearman": []}, "column": {"Pearson": [], "Spearman": []}}
         random_correlations = {"row": {"Pearson": [], "Spearman": []}, "column": {"Pearson": [], "Spearman": []}}
         p_values = {"row": {"Pearson": [], "Spearman": []}, "column": {"Pearson": [], "Spearman": []}}
-        shuffle_values = {"row": {"Pearson": [], "Spearman": []}, "column": {"Pearson": [], "Spearman": []}}
 
         # Calculate row-wise and column-wise correlations for both methods
         for method in ["pearson", "spearman"]:
@@ -1141,35 +1806,16 @@ def plot_correlation_gsea(gsea, our):
             shuffles = 1_000
             temp_row_random_correlations = np.zeros(shuffles)
             temp_col_random_correlations = np.zeros(shuffles)
-            orig_columns1 = df1.columns
-            orig_columns2 = df2.columns
-            orig_index1 = df1.index
-            orig_index2 = df2.index
             for i in range(shuffles):
-                # get shuffle order of columns
-                shuffle1 = np.random.permutation(orig_columns1)
-                shuffle2 = np.random.permutation(orig_columns2)
-                shuffled_df1 = df1[shuffle1]
-                shuffled_df2 = df2[shuffle2]
-                shuffled_df1.columns = orig_columns1
-                shuffled_df2.columns = orig_columns2
-                temp_col_random_correlations[i] = shuffled_df1.corrwith(shuffled_df2, method=method).mean()
-                # # Shuffle rows and compute the mean of row-wise correlations
-                # shuffled_df1 = df1.sample(frac=1, replace=False).reset_index(drop=True)
-                # shuffled_df2 = df2.sample(frac=1, replace=False).reset_index(drop=True)
-                # temp_col_random_correlations[i] = shuffled_df1.corrwith(shuffled_df2, method=method).mean()
-
-                shuffle1 = np.random.permutation(orig_index1)
-                shuffle2 = np.random.permutation(orig_index2)
-                shuffled_df1 = df1.loc[shuffle1]
-                shuffled_df2 = df2.loc[shuffle2]
-                shuffled_df1.index = orig_index1
-                shuffled_df2.index = orig_index2
+                # Shuffle rows and compute the mean of row-wise correlations
+                shuffled_df1 = df1.sample(frac=1, replace=False).reset_index(drop=True)
+                shuffled_df2 = df2.sample(frac=1, replace=False).reset_index(drop=True)
                 temp_row_random_correlations[i] = shuffled_df1.corrwith(shuffled_df2, method=method).mean()
-                # # Shuffle columns in the same way as rows
-                # shuffled_df1 = df1.T.sample(frac=1, replace=False).reset_index(drop=True)
-                # shuffled_df2 = df2.T.sample(frac=1, replace=False).reset_index(drop=True)
-                # temp_row_random_correlations[i] = shuffled_df1.corrwith(shuffled_df2, method=method).mean()
+
+                # Shuffle columns in the same way as rows
+                shuffled_df1 = df1.T.sample(frac=1, replace=False).reset_index(drop=True)
+                shuffled_df2 = df2.T.sample(frac=1, replace=False).reset_index(drop=True)
+                temp_col_random_correlations[i] = shuffled_df1.corrwith(shuffled_df2, method=method).mean()
 
             random_correlations["row"][method.capitalize()] = [np.nanmean(temp_row_random_correlations),
                                                                np.nanstd(temp_row_random_correlations)]
@@ -1180,8 +1826,6 @@ def plot_correlation_gsea(gsea, our):
                 ((np.sum(temp_row_random_correlations >= row) + 1) / (shuffles + 1)) for row in row_correlations]
             p_values["column"][method.capitalize()] = [
                 ((np.sum(temp_col_random_correlations >= col) + 1) / (shuffles + 1)) for col in col_correlations]
-            shuffle_values["row"][method.capitalize()] = [temp_row_random_correlations for _ in row_correlations]
-            shuffle_values["column"][method.capitalize()] = [temp_col_random_correlations for _ in col_correlations]
 
             # # plot a histogram of the random correlations
             # plt.hist(temp_row_random_correlations, bins=30, alpha=0.5, label="Random rows", color='gray')
@@ -1200,47 +1844,36 @@ def plot_correlation_gsea(gsea, our):
         x_labels = df1.index
         x = np.arange(len(x_labels))
         width = 0.35  # Bar width
-        pearson_boxplot = ax.boxplot(shuffle_values["row"]["Pearson"], positions=x - width / 2, widths=width / 2,
-                                     patch_artist=True, boxprops=dict(facecolor=colors[0], alpha=0.3, color=colors[0]))
-        spearman_boxplot = ax.boxplot(shuffle_values["row"]["Spearman"], positions=x + width / 2, widths=width / 2,
-                                      patch_artist=True, boxprops=dict(facecolor=colors[1], alpha=0.3, color=colors[1]))
-        ax.scatter(x - width / 2, correlations["row"]["Pearson"], label="Pearson", color=colors[0], s=50,
-                   edgecolor="black", linewidth=0.5, zorder=3)
-        ax.scatter(x + width / 2, correlations["row"]["Spearman"], label="Spearman", color=colors[1], s=50,
-                   edgecolor="black", linewidth=0.5, zorder=3)
+        ax.bar(x - width / 2, correlations["row"]["Pearson"], width, label="Pearson", alpha=0.7)
+        ax.bar(x + width / 2, correlations["row"]["Spearman"], width, label="Spearman", alpha=0.7)
         # add ns, *, **, etc. for each of the bars in the bar plot in comparison to the shuffles
         # Add significance indicators for Pearson correlations
-        top_whisker_y = np.array([max(whisker.get_ydata()) for whisker in pearson_boxplot['whiskers'][1::2]])
-        if not np.isnan(top_whisker_y.any()):
-            add_significance_indicators(
-                ax, x - width / 2,
-                [max(correlations["row"]["Pearson"][i], top_whisker_y[i]) for i in range(len(x))],
-                p_values["row"]["Pearson"],
-            )
+        add_significance_indicators(
+            ax, x - width / 2,
+            correlations["row"]["Pearson"],
+            p_values["row"]["Pearson"],
+        )
 
         # Add significance indicators for Spearman correlations
-        top_whisker_y = np.array([max(whisker.get_ydata()) for whisker in spearman_boxplot['whiskers'][1::2]])
-        if not np.isnan(top_whisker_y.any()):
-            add_significance_indicators(
-                ax, x + width / 2,
-                [max(correlations["row"]["Spearman"][i], top_whisker_y[i]) for i in range(len(x))],
-                p_values["row"]["Spearman"],
-            )
+        add_significance_indicators(
+            ax, x + width / 2,
+            correlations["row"]["Spearman"],
+            p_values["row"]["Spearman"],
+        )
         ax.set_title(f"{direction.capitalize()} - Row-wise Correlation\n "
                      f"Mean Pearson: {np.nanmean(correlations['row']['Pearson']):.2f}, "
                      f"Mean Spearman: {np.nanmean(correlations['row']['Spearman']):.2f}\n"
-                     # f"Random rows correlation: Pearson: {random_correlations['row']['Pearson'][0]:.2f}±"
-                     # f"{random_correlations['row']['Pearson'][1]:.2f}, "
-                     # f"Spearman: {random_correlations['row']['Spearman'][0]:.2f}±"
-                     # f"{random_correlations['row']['Spearman'][1]:.2f}"
-                     )
+                     f"Random rows correlation: Pearson: {random_correlations['row']['Pearson'][0]:.2f}±"
+                     f"{random_correlations['row']['Pearson'][1]:.2f}, "
+                     f"Spearman: {random_correlations['row']['Spearman'][0]:.2f}±"
+                     f"{random_correlations['row']['Spearman'][1]:.2f}")
         # add thin line for random correlations
-        # ax.axhline(random_correlations['row']['Pearson'][0], color=colors[0], linestyle='--')
-        # ax.axhline(random_correlations['row']['Pearson'][0] + random_correlations['row']['Pearson'][1], color=colors[0],
-        #            linestyle=':')
-        # ax.axhline(random_correlations['row']['Spearman'][0], color=colors[1], linestyle='--')
-        # ax.axhline(random_correlations['row']['Spearman'][0] + random_correlations['row']['Spearman'][1],
-        #            color=colors[1], linestyle=':')
+        ax.axhline(random_correlations['row']['Pearson'][0], color=colors[0], linestyle='--')
+        ax.axhline(random_correlations['row']['Pearson'][0] + random_correlations['row']['Pearson'][1], color=colors[0],
+                   linestyle=':')
+        ax.axhline(random_correlations['row']['Spearman'][0], color=colors[1], linestyle='--')
+        ax.axhline(random_correlations['row']['Spearman'][0] + random_correlations['row']['Spearman'][1],
+                   color=colors[1], linestyle=':')
         ax.set_xticks(x)
         ax.set_xticklabels(x_labels, rotation=90)
         ax.set_ylabel("Correlation")
@@ -1251,113 +1884,219 @@ def plot_correlation_gsea(gsea, our):
         ax = axes[1, j]
         x_labels = df1.columns
         x = np.arange(len(x_labels))
-        pearson_boxplot = ax.boxplot(shuffle_values["column"]["Pearson"], positions=x - width / 2, widths=width / 2,
-                                     patch_artist=True, boxprops=dict(facecolor=colors[0], alpha=0.3, color=colors[0]))
-        spearman_boxplot = ax.boxplot(shuffle_values["column"]["Spearman"], positions=x + width / 2, widths=width / 2,
-                                      patch_artist=True, boxprops=dict(facecolor=colors[1], alpha=0.3, color=colors[1]))
-        ax.scatter(x - width / 2, correlations["column"]["Pearson"], color=colors[0], s=50, edgecolor="black",
-                   linewidth=0.5, zorder=3, label="Pearson")
-        ax.scatter(x + width / 2, correlations["column"]["Spearman"], color=colors[1], s=50, edgecolor="black",
-                   linewidth=0.5, zorder=3, label="Spearman")
+        ax.bar(x - width / 2, correlations["column"]["Pearson"], width, label="Pearson", alpha=0.7)
+        ax.bar(x + width / 2, correlations["column"]["Spearman"], width, label="Spearman", alpha=0.7)
         # Add significance indicators for Pearson correlations
-        top_whisker_y = np.array([max(whisker.get_ydata()) for whisker in pearson_boxplot['whiskers'][1::2]])
-        if not np.isnan(top_whisker_y.any()):
-            add_significance_indicators(
-                ax, x - width / 2,
-                [max(correlations["column"]["Pearson"][i], top_whisker_y[i]) for i in range(len(x))],
-                p_values["column"]["Pearson"],
-            )
+        add_significance_indicators(
+            ax, x - width / 2,
+            correlations["column"]["Pearson"],
+            p_values["column"]["Pearson"],
+        )
 
         # Add significance indicators for Spearman correlations
-        top_whisker_y = np.array([max(whisker.get_ydata()) for whisker in spearman_boxplot['whiskers'][1::2]])
-        if not np.isnan(top_whisker_y.any()):
-            add_significance_indicators(
-                ax, x + width / 2,
-                [max(correlations["column"]["Spearman"][i], top_whisker_y[i]) for i in range(len(x))],
-                p_values["column"]["Spearman"],
-            )
+        add_significance_indicators(
+            ax, x + width / 2,
+            correlations["column"]["Spearman"],
+            p_values["column"]["Spearman"],
+        )
         ax.set_title(f"{direction.capitalize()} - Column-wise Correlation\n "
                      f"Mean Pearson: {np.nanmean(correlations['column']['Pearson']):.2f}, "
                      f"Mean Spearman: {np.nanmean(correlations['column']['Spearman']):.2f}\n"
-                     # f"Random columns correlation: Pearson: {random_correlations['column']['Pearson'][0]:.2f}±"
-                     # f"{random_correlations['column']['Pearson'][1]:.2f}, "
-                     # f"Spearman: {random_correlations['column']['Spearman'][0]:.2f}±"
-                     # f"{random_correlations['column']['Spearman'][1]:.2f}"
-                     )
-        # ax.axhline(random_correlations['column']['Pearson'][0], color=colors[0], linestyle='--')
-        # ax.axhline(random_correlations['column']['Pearson'][0] + random_correlations['column']['Pearson'][1],
-        #            color=colors[0], linestyle=':')
-        # ax.axhline(random_correlations['column']['Spearman'][0], color=colors[1], linestyle='--')
-        # ax.axhline(random_correlations['column']['Spearman'][0] + random_correlations['column']['Spearman'][1],
-        #            color=colors[1], linestyle=':')
+                     f"Random columns correlation: Pearson: {random_correlations['column']['Pearson'][0]:.2f}±"
+                     f"{random_correlations['column']['Pearson'][1]:.2f}, "
+                     f"Spearman: {random_correlations['column']['Spearman'][0]:.2f}±"
+                     f"{random_correlations['column']['Spearman'][1]:.2f}")
+        ax.axhline(random_correlations['column']['Pearson'][0], color=colors[0], linestyle='--')
+        ax.axhline(random_correlations['column']['Pearson'][0] + random_correlations['column']['Pearson'][1],
+                   color=colors[0], linestyle=':')
+        ax.axhline(random_correlations['column']['Spearman'][0], color=colors[1], linestyle='--')
+        ax.axhline(random_correlations['column']['Spearman'][0] + random_correlations['column']['Spearman'][1],
+                   color=colors[1], linestyle=':')
         ax.set_xticks(x)
         ax.set_xticklabels(x_labels, rotation=90)
         ax.set_ylabel("Correlation")
         ax.set_ylim(-1, 1.2)  # Force y-axis to range from -1 to 1
         ax.legend()
 
-    # set x and y ticks of all subplots to 8
-    for ax in axes.flat:
-        ax.xaxis.set_tick_params(labelsize=8)
-        ax.yaxis.set_tick_params(labelsize=8)
-
     # Adjust layout for better visualization
     plt.tight_layout(rect=[0, 0, 1, 0.95])
     plt.savefig(private + "/analysis/correlation_gsea_our.png")
-    plt.savefig(private + "/analysis/correlation_gsea_our.svg")
-    # plt.show()
-    plt.close()
+    plt.show()
 
 
-def merge_results(path):
-    for treat in treatments:
-        for j, abx in enumerate(antibiotics):
-            # abx_data = meta_data[(meta_data['Drug'] == title) & (meta_data['Treatment'] == treat)]
-            # pbs_data = meta_data[(meta_data['Drug'] == 'PBS') & (meta_data['Treatment'] == treat)]
-            selected = pd.read_csv(path, sep="\t")
-            gsea_selected = pd.DataFrame()
-            for folder in os.listdir(os.path.join(private, "gsea")):
-                if folder.startswith(f"{abx.capitalize()}{treat.upper()}"):
-                    # read the csv file that starts with gsea_report_for_1
-                    for file in os.listdir(os.path.join(private, "GSEA", folder)):
-                        if file.startswith("gsea_report_for") and file.endswith(".tsv"):
-                            results = pd.read_csv(os.path.join(private, "GSEA", folder, file), sep="\t")
-                            results['GO term'] = results['NAME']
-                            addition = "_enh" if "_1_" in file else "_supp"
-                            results['GO term'] = results['GO term'] + addition
-                            results['enhanced?'] = "_1_" in file
-                            results = results.rename(columns={"SIZE": "size"})
-                            gsea_selected = pd.concat([gsea_selected, results], ignore_index=True)
-            # merge the two dataframes based on index
-            merged = pd.merge(selected, gsea_selected, on='GO term', how='outer', suffixes=('_our', '_gsea'))
-            merged.to_csv(os.path.join(private, "clusters_properties", "diff_abxRASflow", f"merged_{abx}_{treat}.tsv"),
-                          sep="\t", index=False)
-            clean = merged[
-                ["Antibiotics", "Condition", "GO term", "name", "genes", "gene names", "size_our", "size_gsea",
-                 "fdr GO significance",
-                 "fdr correlation", "FDR q-val"]]
-            clean.to_csv(
-                os.path.join(private, "clusters_properties", "diff_abxRASflow", f"clean_merged_{abx}_{treat}.tsv"),
-                sep="\t", index=False)
+if __name__ == "__main__":
+    # temp_path = "C:\\Users\\Yehonatan\\Desktop\\Master\\Git\\DEP_Compare16s\\Private\\clusters_properties\\diff_abx\\"
+    # for treat in treatments:
+    #     for abx in antibiotics:
+    #         df = pd.read_csv(temp_path+f"top_correlated_GO_terms_{abx}_{treat}.tsv", sep="\treat")
+    #         df["GO term"] = df["GO term"].apply(lambda x: x.split("_")[0])
+    #         df["suf"] = np.where(df["enhanced?"].astype(str) != "False", "_enh", "_supp")
+    #         df["GO term"] += df["suf"]
+    #         df = df.drop(['suf'], axis=1)
+    #         df.to_csv(temp_path+f"top_correlated_GO_terms_{abx}_{treat}.tsv", sep="\treat", index=False)
 
-# if __name__ == "__main__":
-#     run_type = "RASflow"
-#     all_data = pd.read_csv(os.path.join(path, f"diff_abx{run_type}\\top_correlated_GO_terms.tsv"), sep="\t")
-#     genome, meta, partek, transcriptome = read_process_files(new=False)
-#     raw = transcriptome
-#     raw, metadata = transform_data(raw, meta, run_type, skip=True)
-#     # save raw to csv
-#     raw.to_csv(private + f"/analysis/Diff_abx{run_type}/normalized_multiabx.csv")
-#
-#     plot_selected_clusters(raw, meta, "diff_abx" + run_type)
-#     plot_significant_genes_number(meta, raw, antibiotics, treatments, "diff_abx" + run_type)
-#
-#     compare_significance_go(param="diff_abx" + run_type)
-#     clusters_compare_mix(antibiotics, treatments, "diff_abx" + run_type)
-#
-#     merge_results()
-#     # save_median_all_conditions(meta, raw, antibiotics, treatments, "Treatment", "diff_abx" + run_type)
-#     our = plot_categories(antibiotics, treatments, "\\diff_abx" + run_type, False, regular=False)
-#     gsea = plot_categories(antibiotics, treatments, "\\diff_abx" + "GSEA", False, regular=False, gsea=True,
-#                            anchor=(0.5, -5.2))
-#     plot_correlation_gsea(gsea, our)
+    # raw = pd.read_csv(raw_data_path).set_index("Gene Symbol").fillna(0)  # changed to imputed
+    # # raw = normalize_raw_data(raw)
+    # # save normalized df
+    # # raw.to_csv(raw_data_path[:-4] + "_normalized.csv")
+    # meta = pd.read_csv(meta_data_path)
+    # # meta = pd.read_csv(meta_data_path, sep="\t")
+    # # iterate over all .csv files in "C:\Users\Yehonatan\Desktop\Master\Git\DEP_Compare16s\Private\hist\png"
+    # # plot_clusters()
+    # all_data = pd.read_csv(all_path, sep="\t")
+
+    # plot_h2ab1(all_data)
+    # for run_type in ["_normalize_cols", "_normalize_cols_and_rows"]:
+    # for run_type in ["_B2_DES", "_B2_RPKM", "_Hi_DES", "_Hi_RPKM"]:
+    # for run_type in ["_old_controls"]:
+    for run_type in ["RASflow"]:
+        all_data = pd.read_csv(os.path.join(path, f"diff_abx{run_type}\\top_correlated_GO_terms.tsv"), sep="\t")
+        genome, meta, partek, transcriptome = read_process_files(new=False)
+
+        if run_type == "_old_controls":
+            # data = pd.read_csv(
+            #     "../Data/MultiAbx-16s/MultiAbx-RPKM-RNAseq-B6/New Partek_bell_all_Normalization_Normalized_counts1.csv")
+            # metadata = pd.read_csv("../Data/MultiAbx-16s/MultiAbx-RPKM-RNAseq-B6/all-samples-noC9C10.csv")
+            raw = partek
+        # if run_type == "_old_controls":
+        #     raw = pd.read_csv(
+        #         data_path + r"\MultiAbx-16s\MultiAbx-RPKM-RNAseq-B6\New Partek_bell_all_Normalization_Normalized_counts1.csv").set_index(
+        #         "Gene Symbol").fillna(0)
+        #     meta = pd.read_csv(data_path + r"\MultiAbx-16s\MultiAbx-RPKM-RNAseq-B6\all-samples-noC9.tsv", sep="\t")
+        elif "B2" in run_type or "Hi" in run_type:
+            folder = f"../Data/MultiAbx-16s/MultiAbx-RPKM-RNAseq-B6/new normalization/"
+            raw = pd.read_csv(folder + f"Partek_Lilach_All_Abx_Normalization_Normalized_counts{run_type}.csv")
+            # split data columns names by -,_ and take only first part
+            # data.columns = [col.split('-')[0].split('_')[0] for col in data.columns]
+            meta = pd.read_excel(folder + f"metadata.xlsx")
+            # if 'New/Old' == N, add N to the ID
+            meta['ID'] = meta.apply(lambda row: row['ID'] + 'N' if row['New/Old'] == 'N' else row['ID'], axis=1)
+            # for Drug, replace mix with Mix, ampicillin with Amp, Control with PBS METRO with Met, NEO with Neo and
+            # VANCO with Van
+            meta['Drug'] = meta.apply(lambda row: row['Drug'].replace('mix', 'Mix').replace('ampicillin', 'Amp')
+                                      .replace('Control ', 'PBS').replace('METRO', 'Met').replace('NEO', 'Neo')
+                                      .replace('VANCO', 'Van'), axis=1)
+            # for every column name of data that is in the column Sample in metadata, replace it with equivalent row from ID
+            # column in metadata
+            raw.columns = [meta[meta['Sample'] == col]['ID'].values[0] if col in meta['Sample'].values else col
+                           for col in raw.columns]
+            # remove all columns containing - or _
+            raw = raw.drop([col for col in raw.columns if '-' in col or '_' in col if col != "gene_name"], axis=1)
+            raw = raw.set_index("gene_name")
+        elif run_type == "RASflow":
+            # directory = f"../Data/MultiAbx-16s/MultiAbx-RPKM-RNAseq-B6/new normalization/"
+            # data = parse_data(directory, only_old=True)
+            # metadata = get_metadata(directory, only_old=True)
+            # data.columns = [metadata[metadata['Sample'] == col]['ID'].values[0] if col in metadata['Sample'].values else col
+            #                 for col in data.columns]
+            # # remove samples with no metadata   # todo: check
+            # data = data.drop([col for col in data.columns if '-' in col or '_' in col if col != "gene_name"], axis=1)
+            # # sum rows with same gene_name but keep this gene_name column todo: note
+            # data = data.groupby('gene_name').sum()
+            # data['gene_name'] = data.index
+            raw = transcriptome
+        elif run_type == "RASflowRPKM":
+            directory = f"../Data/MultiAbx-16s/MultiAbx-RPKM-RNAseq-B6/new normalization/"
+            data = parse_data(directory, "rpkm", only_old=True)
+            meta = get_metadata(directory, "rpkm", only_old=True)
+            data.columns = [
+                meta[meta['Sample'] == col]['ID'].values[0] if col in meta['Sample'].values else col
+                for col in data.columns]
+            # remove samples with no metadata   # todo: check
+            data = data.drop([col for col in data.columns if '-' in col or '_' in col if col != "gene_name"], axis=1)
+            # sum rows with same gene_name but keep this gene_name column todo: note
+            data = data.groupby('gene_name').sum()
+            data['gene_name'] = data.index
+        else:
+            raw = pd.read_csv(raw_data_path).set_index("Gene Symbol").fillna(0)  # changed to imputed
+            meta = pd.read_csv(meta_data_path)
+            raw = raw.div(raw.sum(axis=0), axis=1)
+            if run_type == "_normalize_cols_and_rows":
+                for abx in antibiotics:
+                    for treatment in treatments:
+                        abx_mice = meta[(meta['Drug'] == abx) & (meta['Treatment'] == treatment)]
+                        pbs_mice = meta[(meta['Drug'] == 'PBS') & (meta['Treatment'] == treatment)]
+                        all_mice = abx_mice.append(pbs_mice)
+                        raw.loc[:, all_mice['ID']] = z_score_by_pbs(raw.loc[:, all_mice['ID']], abx_mice, pbs_mice)
+
+        # raw = raw.replace(0, np.nan)
+        # raw = np.log10(raw)
+        # raw = impute_zeros(raw, meta, 'Treatment', run_type, skip_if_exist=True)
+        # raw = np.log2(raw)
+
+        raw, metadata = transform_data(raw, meta, run_type, skip=True)
+
+        # # drop C9, C10 from metadata and from data # note
+        # meta = meta.drop(meta[meta['ID'] == 'C9'].index).drop(meta[meta['ID'] == 'C10'].index)
+        # raw = raw.drop('C9', axis=1).drop('C10', axis=1)
+
+        # # Remove V11 from data, and remove row ID==V11 from metadata
+        # # raw = raw.drop('V11', axis=1)
+        # meta = meta.drop(meta[meta['ID'] == 'V11'].index)
+        # save raw to csv
+        raw.to_csv(private + f"/analysis/Diff_abx{run_type}/normalized_multiabx.csv")
+
+        # plot_selected_clusters(raw, meta, "diff_abx" + run_type)
+        # exit()
+
+        # plot_significant_genes_number(meta, raw, antibiotics, treatments, "diff_abx" + run_type)
+        # effective_number_genes(raw, meta)
+        # compare_significance_go(param="diff_abx" + run_type)
+
+        # clusters_compare_mix(raw, meta, antibiotics, treatments, "diff_abx" + run_type)
+
+        # compare_to_gsea(meta, antibiotics, treatments, 'Treatment', "diff_abx" + run_type)
+        # plot_median_all_conditions(meta, raw, antibiotics, treatments, 'Treatment', '\\diff_abx' + run_type, run_type,
+        #                            regular=False)
+        # todo: Document methods!!!
+        # plot_all()
+        # plot_clusters(np.log2(raw + 1))
+
+        # save_median_all_conditions(meta, raw, antibiotics, treatments, "Treatment", "diff_abx" + run_type)
+        our = plot_categories(antibiotics, treatments, "\\diff_abx" + run_type, False, regular=False)
+        gsea = plot_categories(antibiotics, treatments, "\\diff_abx" + "GSEA", False, regular=False, gsea=True)
+        plot_correlation_gsea(gsea, our)
+
+    # selected_data = get_selected(all_data)
+    # # # print(len(selected_data))
+    # # dimension_reduction(raw.loc[selected_data], meta, 'Treatment')
+    # all_go_concat = get_all_go_raw("Treatment", raw, "diff_abx", meta)
+    # dimension_reduction(all_go_concat, meta, 'Treatment')
+
+    # already happens in ClusteringGO
+    # new_controls = pd.read_csv("../Data/MultiAbx-16s/MultiAbx-RPKM-RNAseq-B6/Partek_Lilach_New_controls_Shai_"
+    #                            "Normalization_Normalized_counts_RPKM.tsv", sep='\t').set_index('Gene Symbol')
+    # new_metadata = pd.read_csv("../Data/MultiAbx-16s/MultiAbx-RPKM-RNAseq-B6/new-samples.tsv", sep='\t')
+    # # concat all data and metadata
+    # new_all_data = pd.concat([new_controls, raw], axis=1).fillna(0)
+    # new_all_meta = pd.concat([new_metadata, meta], axis=0)
+
+    # dimension_reduction(new_all_data, new_all_meta, "Treatment")
+
+    # for treat in conditions:
+    #     for abx in antibiotics:
+    #         abx_data = meta[(meta['Drug'] == abx) & (meta['Treatment'] == treat)]
+    #         pbs_data = meta[(meta['Drug'] == 'PBS') & (meta['Treatment'] == treat)]
+    #         # specific_raw = raw[(raw["Antibiotics"] == abx) & (raw["Treatment"] == treat)]
+    #         df = pd.read_csv(path + f"top_correlated_GO_terms_{abx}_{treat}.tsv", sep="\treat")
+    #         # scatter plot for distance vs. # genes in cluster (color and shape by treatment)
+    #         # plot(df, "", 'size', '\"distance\"')
+    #
+    #         selected = df[(df['MWU'] <= 0.05) & (df['size'] >= 2) & (
+    #                 df['better than parent'] != False) & (df['better than random correlation'] == 1)]
+    #         # selected = df[(df['size'] >= 5) & (df['better than parent'] != False) &
+    #         #               (df['better than random correlation'] == 1)].sort_values(by='MWU').head(20)
+    #         print(abx, treat, selected.shape)
+    #         # ax = plt.subplot(rows, cols, i * cols + j + 1)
+    #         matrix = plot_medians(selected, raw, abx_data, pbs_data, f"{treat} {abx}", True, False)
+    #         # print(selected['MWU'].iloc[19])
+    #
+    #         # iterate over each row in selected and get the relevant GO object
+    #         # for index, row in selected.iterrows():
+    #
+    #         # heatmap showing for each “surviving” cluster just the median expression, so each cluster is a single
+    #         # row, and now have all 800 and ALL the samples. Let seaborn do a cluster-map (hierarchical clustering) on
+    #         # the clusters, but organize the samples (columns) according to conditions.
+    #         # plot_medians(df[df['treat-test p-value'] < 0.05], raw, abx_data, pbs_data, f"p-val {abx}_{treat}")
+    # # plt.savefig(f"C:\\Users\\Yehonatan\\Desktop\\Master\\Git\\DEP_Compare16s\\Private\\all_conditions_median.png")
+    # # plt.show()
