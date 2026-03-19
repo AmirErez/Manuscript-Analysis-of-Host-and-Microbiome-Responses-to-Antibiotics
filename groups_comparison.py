@@ -31,6 +31,17 @@ plt.rcParams['svg.fonttype'] = 'none'
 
 
 def plot_interference_noise_dashboard(pair_name, interference_path, noise_dist_path, noisy_genes_path):
+    # --- Set Publishable Global Font Sizes ---
+    plt.rcParams.update({
+        'font.size': 14,  # Global font size
+        'axes.titlesize': 16,  # Title size
+        'axes.labelsize': 14,  # X/Y label size
+        'xtick.labelsize': 12,  # X tick size
+        'ytick.labelsize': 12,  # Y tick size
+        'legend.fontsize': 12,  # Legend text size
+        'figure.titlesize': 18  # Suptitle size
+    })
+
     # --- Load Data ---
     # 1. Interference
     try:
@@ -40,106 +51,251 @@ def plot_interference_noise_dashboard(pair_name, interference_path, noise_dist_p
         int_df = pd.DataFrame()
 
     # 2. Global Noise
-    dist_df = pd.read_csv(noise_dist_path, index_col=0)
+    try:
+        dist_df = pd.read_csv(noise_dist_path, index_col=0)
+    except FileNotFoundError:
+        print(f"No global noise file for {pair_name}")
+        dist_df = pd.DataFrame()
 
     # 3. Gene Noise
-    noise_df = pd.read_csv(noisy_genes_path, index_col=0)
+    try:
+        noise_df = pd.read_csv(noisy_genes_path, index_col=0)
+    except FileNotFoundError:
+        print(f"No gene noise file for {pair_name}")
+        noise_df = pd.DataFrame()
 
-    # --- Setup Canvas ---
-    fig = plt.figure(figsize=(18, 6), constrained_layout=True)
-    gs = fig.add_gridspec(1, 3)
-    ax1 = fig.add_subplot(gs[0, 0])  # Volcano
-    ax2 = fig.add_subplot(gs[0, 1])  # Global Dist
-    ax3 = fig.add_subplot(gs[0, 2])  # Noise Scatter
+    # Create output directory if it doesn't exist
+    out_dir = "./Private/Noise"
+    os.makedirs(out_dir, exist_ok=True)
 
+    safe_name = pair_name.replace('+', '_')
+
+    # ==========================================
     # --- Plot 1: Interference Volcano ---
+    # ==========================================
+    fig1, ax1 = plt.subplots(figsize=(8, 6))
+
     if not int_df.empty:
         # Create colors based on significance and direction
         conditions = [
-            # (int_df['padj_Interaction'] < 0.05) & (int_df['LFC_Interaction'] > 0),
             (int_df['padj'] < 0.05) & (int_df['log2FoldChange'] > 0),
-            # (int_df['padj_Interaction'] < 0.05) & (int_df['LFC_Interaction'] < 0)
             (int_df['padj'] < 0.05) & (int_df['log2FoldChange'] < 0)
         ]
-        choices = ['Synergy/Amplified', 'Buffering/Antagonism']
+        choices = ['Synergy', 'Antagonism']
         int_df['Type'] = np.select(conditions, choices, default='NS')
 
         # Plot NS
         sns.scatterplot(data=int_df[int_df['Type'] == 'NS'], x='log2FoldChange', y='padj',
-                        # sns.scatterplot(data=int_df[int_df['Type'] == 'NS'], x='LFC_Interaction', y='padj_Interaction',
-                        ax=ax1, color='lightgrey', alpha=0.5, s=15, edgecolor=None)
+                        ax=ax1, color='lightgrey', alpha=0.5, s=30, edgecolor=None)
 
         # Plot Sig
         sns.scatterplot(data=int_df[int_df['Type'] != 'NS'], x='log2FoldChange', y='padj',
-                        # sns.scatterplot(data=int_df[int_df['Type'] != 'NS'], x='LFC_Interaction', y='padj_Interaction',
-                        ax=ax1, hue='Type', palette={'Synergy/Amplified': '#d62728', 'Buffering/Antagonism': '#1f77b4'},
-                        alpha=0.8, s=40)
+                        ax=ax1, hue='Type', palette={'Synergy': '#d62728', 'Antagonism': '#1f77b4'},
+                        alpha=0.8, s=60)
 
         # Log scale y-axis for p-values
         ax1.set_yscale('log')
         ax1.invert_yaxis()  # Small p-values at top
-        ax1.set_title(f"Interference: {pair_name}\n(Deviation from Additivity)", fontsize=12, fontweight='bold')
+        ax1.set_title(f"Interference: {pair_name}\n(Deviation from Additivity)", fontweight='bold')
         ax1.set_xlabel("Interaction LFC\n(>0 = Pair is stronger than sum)")
         ax1.set_ylabel("Adjusted P-value")
-        ax1.axvline(0, linestyle='--', color='black', linewidth=0.8)
+        ax1.axvline(0, linestyle='--', color='black', linewidth=1)
+
+        # Annotate top genes (Increased fontsize to 12)
+        # top_genes = int_df.sort_values('padj').head(5)
+        # for idx, row in top_genes.iterrows():
+        #     ax1.text(row['log2FoldChange'], row['padj'], row['gene_name'], fontsize=12)
+        from adjustText import adjust_text
 
         # Annotate top genes
         top_genes = int_df.sort_values('padj').head(5)
-        # top_genes = int_df.sort_values('padj_Interaction').head(5)
+        texts = []
         for idx, row in top_genes.iterrows():
-            ax1.text(row['log2FoldChange'], row['padj'], row['gene_name'], fontsize=9)
+            # Append the text object to a list, but do not rely on it staying exactly here
+            texts.append(ax1.text(row['log2FoldChange'], row['padj'], row['gene_name'], fontsize=12))
 
+        # Automatically adjust text positions to prevent overlap
+        adjust_text(texts, ax=ax1,
+                    # arrowprops=dict(arrowstyle="-", color='gray', lw=0.5),
+                    expand_points=(1.5, 1.5))  # Adds a bit of padding around the original points
     else:
-        ax1.text(0.5, 0.5, "No Significant Interference", ha='center', va='center')
+        ax1.text(0.5, 0.5, "No Significant Interference", ha='center', va='center', fontsize=16)
 
+    plt.tight_layout()
+    # Save as PDF (Vectorized)
+    out_file1 = f"{out_dir}/Interference_Volcano_{safe_name}.pdf"
+    fig1.savefig(out_file1, format='pdf', bbox_inches='tight')
+    out_file1_svg = f"{out_dir}/Interference_Volcano_{safe_name}.svg"
+    fig1.savefig(out_file1_svg, format='svg', bbox_inches='tight')
+    plt.close(fig1)
+    print(f"Saved: {out_file1}")
+
+    # ==========================================
     # --- Plot 2: Global Noise (Distance to Centroid) ---
-    # Order: PBS, Single A, Single B, Pair
-    # We infer order from data present
-    groups = dist_df['Group'].unique()
-    # Simple sort to try to keep Pair last or PBS first
-    groups = sorted(list(groups), key=lambda x: (x != 'PBS', x == pair_name))
+    # ==========================================
+    if not dist_df.empty:
+        fig2, ax2 = plt.subplots(figsize=(6, 6))
 
-    sns.boxplot(data=dist_df, x='Group', y='DistToCentroid', order=groups, ax=ax2, palette="Set2")
-    sns.swarmplot(data=dist_df, x='Group', y='DistToCentroid', order=groups, ax=ax2, color=".25", size=4)
+        groups = dist_df['Group'].unique()
+        groups = sorted(list(groups), key=lambda x: (x != 'PBS', x == pair_name))
 
-    ax2.set_title(f"Global Transcriptional Stability\n(Inter-replicate Heterogeneity)", fontsize=12, fontweight='bold')
-    ax2.set_ylabel("Euclidean Distance to Group Centroid")
-    ax2.set_xlabel("")
+        sns.boxplot(data=dist_df, x='Group', y='DistToCentroid', order=groups, ax=ax2, palette="Set2")
+        sns.swarmplot(data=dist_df, x='Group', y='DistToCentroid', order=groups, ax=ax2, color=".25", size=6)
 
+        ax2.set_title(f"Global Transcriptional Stability\n(Inter-replicate Heterogeneity)", fontweight='bold')
+        ax2.set_ylabel("Euclidean Distance to Group Centroid")
+        ax2.set_xlabel("")
+        plt.xticks(rotation=45)  # Rotate just in case labels overlap with bigger fonts
+
+        plt.tight_layout()
+        out_file2 = f"{out_dir}/Global_Noise_{safe_name}.pdf"
+        fig2.savefig(out_file2, format='pdf', bbox_inches='tight')
+        out_file2_svg = f"{out_dir}/Global_Noise_{safe_name}.svg"
+        fig2.savefig(out_file2_svg, format='svg', bbox_inches='tight')
+        plt.close(fig2)
+        print(f"Saved: {out_file2}")
+
+    # ==========================================
     # --- Plot 3: Gene-Specific Noise Landscape ---
-    # We want to plot NoiseRatio vs Mean Expression
-    # (Assuming we have Mean Expression in the Noise DF or need to merge it back.
-    # The previous script didn't save Mean in Noisy_Genes, but let's assume we use what we have or 'var_Met' as proxy for abundance)
+    # ==========================================
+    if not noise_df.empty:
+        fig3, ax3 = plt.subplots(figsize=(8, 6))
 
-    # If 'Mean' column missing, we can infer abundance roughly from variance (since Mean ~ Var in Poisson),
-    # but ideally you'd add 'mean_expr' to the save step in the previous script.
-    # For now, let's plot Ratio vs Variance (as proxy for expression magnitude)
+        top_noisy = noise_df.head(10)
 
-    # Highlight top noisy genes
-    top_noisy = noise_df.head(10)
+        sns.scatterplot(data=noise_df, x='Met', y='NoiseRatio', ax=ax3,
+                        color='grey', alpha=0.4, s=40, label='All Genes')
 
-    sns.scatterplot(data=noise_df, x='Met', y='NoiseRatio', ax=ax3,
-                    color='grey', alpha=0.4, s=20, label='All Genes')
+        # Highlight
+        sns.scatterplot(data=top_noisy, x='Met', y='NoiseRatio', ax=ax3,
+                        color='red', s=80, label='Top Variable')
 
-    # Highlight
-    sns.scatterplot(data=top_noisy, x='Met', y='NoiseRatio', ax=ax3,
-                    color='red', s=50, label='Top Variable')
+        ax3.set_xscale('log')
+        ax3.set_yscale('log')
+        ax3.set_title(f"Gene-Specific Noise Induction\n({pair_name} vs Singles)", fontweight='bold')
+        ax3.set_xlabel("Baseline Variance (Proxy for Expression)")
+        ax3.set_ylabel("Noise Ratio (Pair Var / Single Var)")
+        ax3.axhline(1, linestyle='--', color='black', linewidth=1)
 
-    ax3.set_xscale('log')
-    ax3.set_yscale('log')
-    ax3.set_title(f"Gene-Specific Noise Induction\n({pair_name} vs Singles)", fontsize=12, fontweight='bold')
-    ax3.set_xlabel("Baseline Variance (Proxy for Expression)")
-    ax3.set_ylabel("Noise Ratio (Pair Var / Single Var)")
-    ax3.axhline(1, linestyle='--', color='black')
+        # Annotate (Increased fontsize to 11 to fit potentially crowded spaces)
+        for idx, row in top_noisy.iterrows():
+            ax3.text(row['Met'], row['NoiseRatio'], row['gene_name'], fontsize=11)
 
-    # Annotate
-    for idx, row in top_noisy.iterrows():
-        ax3.text(row['Met'], row['NoiseRatio'], row['gene_name'], fontsize=8)
-
-    plt.suptitle(f"Analysis Dashboard: {pair_name}", fontsize=16)
-    output_file = f"./Private/Noise/Dashboard_{pair_name.replace('+', '_')}.png"
-    plt.savefig(output_file, dpi=300)
-    print(f"Dashboard saved to {output_file}")
+        plt.tight_layout()
+        out_file3 = f"{out_dir}/Gene_Noise_{safe_name}.pdf"
+        fig3.savefig(out_file3, format='pdf', bbox_inches='tight')
+        plt.close(fig3)
+        print(f"Saved: {out_file3}")
+# def plot_interference_noise_dashboard(pair_name, interference_path, noise_dist_path, noisy_genes_path):
+#     # --- Load Data ---
+#     # 1. Interference
+#     try:
+#         int_df = pd.read_csv(interference_path, index_col=0)
+#     except FileNotFoundError:
+#         print(f"No interference file for {pair_name}")
+#         int_df = pd.DataFrame()
+#
+#     # 2. Global Noise
+#     dist_df = pd.read_csv(noise_dist_path, index_col=0)
+#
+#     # 3. Gene Noise
+#     noise_df = pd.read_csv(noisy_genes_path, index_col=0)
+#
+#     # --- Setup Canvas ---
+#     fig = plt.figure(figsize=(18, 6), constrained_layout=True)
+#     gs = fig.add_gridspec(1, 3)
+#     ax1 = fig.add_subplot(gs[0, 0])  # Volcano
+#     ax2 = fig.add_subplot(gs[0, 1])  # Global Dist
+#     ax3 = fig.add_subplot(gs[0, 2])  # Noise Scatter
+#
+#     # --- Plot 1: Interference Volcano ---
+#     if not int_df.empty:
+#         # Create colors based on significance and direction
+#         conditions = [
+#             # (int_df['padj_Interaction'] < 0.05) & (int_df['LFC_Interaction'] > 0),
+#             (int_df['padj'] < 0.05) & (int_df['log2FoldChange'] > 0),
+#             # (int_df['padj_Interaction'] < 0.05) & (int_df['LFC_Interaction'] < 0)
+#             (int_df['padj'] < 0.05) & (int_df['log2FoldChange'] < 0)
+#         ]
+#         choices = ['Synergy/Amplified', 'Buffering/Antagonism']
+#         int_df['Type'] = np.select(conditions, choices, default='NS')
+#
+#         # Plot NS
+#         sns.scatterplot(data=int_df[int_df['Type'] == 'NS'], x='log2FoldChange', y='padj',
+#                         # sns.scatterplot(data=int_df[int_df['Type'] == 'NS'], x='LFC_Interaction', y='padj_Interaction',
+#                         ax=ax1, color='lightgrey', alpha=0.5, s=15, edgecolor=None)
+#
+#         # Plot Sig
+#         sns.scatterplot(data=int_df[int_df['Type'] != 'NS'], x='log2FoldChange', y='padj',
+#                         # sns.scatterplot(data=int_df[int_df['Type'] != 'NS'], x='LFC_Interaction', y='padj_Interaction',
+#                         ax=ax1, hue='Type', palette={'Synergy/Amplified': '#d62728', 'Buffering/Antagonism': '#1f77b4'},
+#                         alpha=0.8, s=40)
+#
+#         # Log scale y-axis for p-values
+#         ax1.set_yscale('log')
+#         ax1.invert_yaxis()  # Small p-values at top
+#         ax1.set_title(f"Interference: {pair_name}\n(Deviation from Additivity)", fontsize=12, fontweight='bold')
+#         ax1.set_xlabel("Interaction LFC\n(>0 = Pair is stronger than sum)")
+#         ax1.set_ylabel("Adjusted P-value")
+#         ax1.axvline(0, linestyle='--', color='black', linewidth=0.8)
+#
+#         # Annotate top genes
+#         top_genes = int_df.sort_values('padj').head(5)
+#         # top_genes = int_df.sort_values('padj_Interaction').head(5)
+#         for idx, row in top_genes.iterrows():
+#             ax1.text(row['log2FoldChange'], row['padj'], row['gene_name'], fontsize=9)
+#
+#     else:
+#         ax1.text(0.5, 0.5, "No Significant Interference", ha='center', va='center')
+#
+#     # --- Plot 2: Global Noise (Distance to Centroid) ---
+#     # Order: PBS, Single A, Single B, Pair
+#     # We infer order from data present
+#     groups = dist_df['Group'].unique()
+#     # Simple sort to try to keep Pair last or PBS first
+#     groups = sorted(list(groups), key=lambda x: (x != 'PBS', x == pair_name))
+#
+#     sns.boxplot(data=dist_df, x='Group', y='DistToCentroid', order=groups, ax=ax2, palette="Set2")
+#     sns.swarmplot(data=dist_df, x='Group', y='DistToCentroid', order=groups, ax=ax2, color=".25", size=4)
+#
+#     ax2.set_title(f"Global Transcriptional Stability\n(Inter-replicate Heterogeneity)", fontsize=12, fontweight='bold')
+#     ax2.set_ylabel("Euclidean Distance to Group Centroid")
+#     ax2.set_xlabel("")
+#
+#     # --- Plot 3: Gene-Specific Noise Landscape ---
+#     # We want to plot NoiseRatio vs Mean Expression
+#     # (Assuming we have Mean Expression in the Noise DF or need to merge it back.
+#     # The previous script didn't save Mean in Noisy_Genes, but let's assume we use what we have or 'var_Met' as proxy for abundance)
+#
+#     # If 'Mean' column missing, we can infer abundance roughly from variance (since Mean ~ Var in Poisson),
+#     # but ideally you'd add 'mean_expr' to the save step in the previous script.
+#     # For now, let's plot Ratio vs Variance (as proxy for expression magnitude)
+#
+#     # Highlight top noisy genes
+#     top_noisy = noise_df.head(10)
+#
+#     sns.scatterplot(data=noise_df, x='Met', y='NoiseRatio', ax=ax3,
+#                     color='grey', alpha=0.4, s=20, label='All Genes')
+#
+#     # Highlight
+#     sns.scatterplot(data=top_noisy, x='Met', y='NoiseRatio', ax=ax3,
+#                     color='red', s=50, label='Top Variable')
+#
+#     ax3.set_xscale('log')
+#     ax3.set_yscale('log')
+#     ax3.set_title(f"Gene-Specific Noise Induction\n({pair_name} vs Singles)", fontsize=12, fontweight='bold')
+#     ax3.set_xlabel("Baseline Variance (Proxy for Expression)")
+#     ax3.set_ylabel("Noise Ratio (Pair Var / Single Var)")
+#     ax3.axhline(1, linestyle='--', color='black')
+#
+#     # Annotate
+#     for idx, row in top_noisy.iterrows():
+#         ax3.text(row['Met'], row['NoiseRatio'], row['gene_name'], fontsize=8)
+#
+#     plt.suptitle(f"Analysis Dashboard: {pair_name}", fontsize=16)
+#     output_file = f"./Private/Noise/Dashboard_{pair_name.replace('+', '_')}.png"
+#     plt.savefig(output_file, dpi=300)
+#     print(f"Dashboard saved to {output_file}")
     # plt.show()
 
 
@@ -592,9 +748,9 @@ def run_suppression_analysis(counts, meta, drug_A, drug_B):
 
         # 3. Intersection
         common_genes1 = list(set(suppressed_vs_A) & set(suppressed_vs_B))
-        common_genes2 = list(set(PBS_vs_A) & set(PBS_vs_B))
-        common_genes = list(set(common_genes1) & set(common_genes2))
-        # common_genes = common_genes1  # Relaxed condition without PBS check
+        # common_genes2 = list(set(PBS_vs_A) & set(PBS_vs_B))
+        # common_genes = list(set(common_genes1) & set(common_genes2))
+        common_genes = common_genes1  # Relaxed condition without PBS check
 
         # Create a result DataFrame for these specific genes
         # We will store the LFC vs A and LFC vs B for reference
@@ -603,10 +759,10 @@ def run_suppression_analysis(counts, meta, drug_A, drug_B):
         final_df['padj_vs_A'] = res_A.loc[common_genes, 'padj']
         final_df['LFC_vs_B'] = res_B.loc[common_genes, 'log2FoldChange']
         final_df['padj_vs_B'] = res_B.loc[common_genes, 'padj']
-        final_df['LFC_A_vs_PBS'] = res_C.loc[common_genes, 'log2FoldChange']
-        final_df['padj_A_vs_PBS'] = res_C.loc[common_genes, 'padj']
-        final_df['LFC_B_vs_PBS'] = res_D.loc[common_genes, 'log2FoldChange']
-        final_df['padj_B_vs_PBS'] = res_D.loc[common_genes, 'padj']
+        # final_df['LFC_A_vs_PBS'] = res_C.loc[common_genes, 'log2FoldChange']
+        # final_df['padj_A_vs_PBS'] = res_C.loc[common_genes, 'padj']
+        # final_df['LFC_B_vs_PBS'] = res_D.loc[common_genes, 'log2FoldChange']
+        # final_df['padj_B_vs_PBS'] = res_D.loc[common_genes, 'padj']
 
         # Sort by the "least suppressed" value (closest to 0) to find the most robust ones first?
         # Or sort by the average suppression. Let's sort by average LFC.
@@ -1009,40 +1165,40 @@ def run_analysis(counts_df, metadata_df, id_map, pairs_config):
     for config in pairs_config:
         pair = config['pair']
         print(f"\n--- Analyzing {pair} ---")
-
-        # 2. Interference
-        print("Running DESeq2 Interference Analysis...")
-        # int_res = run_interference_analysis(counts_df, metadata_df, config['A'], config['B'])
-        detailed_res = run_interference_analysis_detailed(counts_df, metadata_df, config['A'], config['B'])
-
-        if not detailed_res.empty:
-            # A. Save the Master Table (with single LFCs and Interaction)
-            detailed_res['gene_name'] = detailed_res.index.map(id_map)
-            detailed_res.to_csv(f"./Private/Noise/Detailed_Interference_{pair}.csv")
-
-            # B. Save the "Standard" Interference file for the Dashboard
-            # The plotting function expects 'log2FoldChange' and 'padj'
-            sig_int_plot = detailed_res.rename(columns={
-                'LFC_Interaction': 'log2FoldChange',
-                'padj_Interaction': 'padj'
-            })
-            # Filter for significant interactions only for the plot file
-            sig_int_plot = sig_int_plot[sig_int_plot['padj'] < 0.05]
-            sig_int_plot.to_csv(f"./Private/Noise/Interference_Genes_{pair}.csv")
-            print(f"   -> Found {len(sig_int_plot)} significant interference genes.")
-
-            # --- 2b. The 3 New Mechanisms (Deep Dive) ---
-            print("Running Mechanism Investigations (Spread, Opposing, Super-Enhancement)...")
-            opposite_signs(detailed_res, config['A'], config['B'], id_map)
-        # if not int_res.empty:
-        #     # Save significant interference genes (padj < 0.05)
-        #     sig_int = int_res[int_res['padj_Interaction'] < 0.05].copy()
-        #     # sig_int = int_res[int_res['padj'] < 0.05].copy()
-        #     sig_int['gene_name'] = sig_int.index.map(id_map)
-        #     output_file = f"./Private/Noise/Interference_Genes_{pair}.csv"
-        #     sig_int.to_csv(output_file)
-        #     print(f"Found {len(sig_int)} interference genes. Saved to {output_file}")
-
+        #
+        # # 2. Interference
+        # print("Running DESeq2 Interference Analysis...")
+        # # int_res = run_interference_analysis(counts_df, metadata_df, config['A'], config['B'])
+        # detailed_res = run_interference_analysis_detailed(counts_df, metadata_df, config['A'], config['B'])
+        #
+        # if not detailed_res.empty:
+        #     # A. Save the Master Table (with single LFCs and Interaction)
+        #     detailed_res['gene_name'] = detailed_res.index.map(id_map)
+        #     detailed_res.to_csv(f"./Private/Noise/Detailed_Interference_{pair}.csv")
+        #
+        #     # B. Save the "Standard" Interference file for the Dashboard
+        #     # The plotting function expects 'log2FoldChange' and 'padj'
+        #     sig_int_plot = detailed_res.rename(columns={
+        #         'LFC_Interaction': 'log2FoldChange',
+        #         'padj_Interaction': 'padj'
+        #     })
+        #     # Filter for significant interactions only for the plot file
+        #     sig_int_plot = sig_int_plot[sig_int_plot['padj'] < 0.05]
+        #     sig_int_plot.to_csv(f"./Private/Noise/Interference_Genes_{pair}.csv")
+        #     print(f"   -> Found {len(sig_int_plot)} significant interference genes.")
+        #
+        #     # --- 2b. The 3 New Mechanisms (Deep Dive) ---
+        #     print("Running Mechanism Investigations (Spread, Opposing, Super-Enhancement)...")
+        #     opposite_signs(detailed_res, config['A'], config['B'], id_map)
+        # # if not int_res.empty:
+        # #     # Save significant interference genes (padj < 0.05)
+        # #     sig_int = int_res[int_res['padj_Interaction'] < 0.05].copy()
+        # #     # sig_int = int_res[int_res['padj'] < 0.05].copy()
+        # #     sig_int['gene_name'] = sig_int.index.map(id_map)
+        # #     output_file = f"./Private/Noise/Interference_Genes_{pair}.csv"
+        # #     sig_int.to_csv(output_file)
+        # #     print(f"Found {len(sig_int)} interference genes. Saved to {output_file}")
+        #
         # 2b. Suppression
         print("Running DESeq2 Interference (single) Analysis...")
         sup_res = run_suppression_analysis(counts_df, metadata_df, config['A'], config['B'])
@@ -1061,27 +1217,27 @@ def run_analysis(counts_df, metadata_df, id_map, pairs_config):
             sup_res.to_csv(output_file)
             print(f"   -> Found {len(sup_res)} strictly suppressed genes.")
 
-        # 3. Noise
-        print("Running Noise/Variance Analysis...")
-        dist_df, var_df = analyze_noise(counts_df, metadata_df, pair, [config['A'], config['B']])
-
-        # Save Global Noise stats
-        dist_df.to_csv(f"./Private/Noise/Global_Noise_Distances_{pair}.csv")
-
-        # Check if Pair is globally noisier (T-test vs singles)
-        pair_dists = dist_df[dist_df['Group'] == pair]['DistToCentroid']
-        single_dists = dist_df[dist_df['Group'].isin([config['A'], config['B']])]['DistToCentroid']
-        from scipy.stats import ttest_ind
-
-        t_stat, p_val = ttest_ind(pair_dists, single_dists, equal_var=False)
-        print(f"Global Noise P-value (Pair vs Singles): {p_val:.4f}")
-
-        # Save Gene Noise candidates
-        # Genes where Pair variance is > 2x Single variance
-        noisy_genes = var_df[var_df['NoiseRatio'] > 2].sort_values('NoiseRatio', ascending=False)
-        noisy_genes['gene_name'] = noisy_genes.index.map(id_map)
-        noisy_genes.to_csv(f"./Private/Noise/Noisy_Genes_{pair}.csv")
-        print(f"Found {len(noisy_genes)} genes with high induced noise (>2x ratio).")
+        # # 3. Noise
+        # print("Running Noise/Variance Analysis...")
+        # dist_df, var_df = analyze_noise(counts_df, metadata_df, pair, [config['A'], config['B']])
+        #
+        # # Save Global Noise stats
+        # dist_df.to_csv(f"./Private/Noise/Global_Noise_Distances_{pair}.csv")
+        #
+        # # Check if Pair is globally noisier (T-test vs singles)
+        # pair_dists = dist_df[dist_df['Group'] == pair]['DistToCentroid']
+        # single_dists = dist_df[dist_df['Group'].isin([config['A'], config['B']])]['DistToCentroid']
+        # from scipy.stats import ttest_ind
+        #
+        # t_stat, p_val = ttest_ind(pair_dists, single_dists, equal_var=False)
+        # print(f"Global Noise P-value (Pair vs Singles): {p_val:.4f}")
+        #
+        # # Save Gene Noise candidates
+        # # Genes where Pair variance is > 2x Single variance
+        # noisy_genes = var_df[var_df['NoiseRatio'] > 2].sort_values('NoiseRatio', ascending=False)
+        # noisy_genes['gene_name'] = noisy_genes.index.map(id_map)
+        # noisy_genes.to_csv(f"./Private/Noise/Noisy_Genes_{pair}.csv")
+        # print(f"Found {len(noisy_genes)} genes with high induced noise (>2x ratio).")
 
         # Adjust filename pattern to match your previous save output
         safe_p = pair  # or p.replace("+", "_") depending on your file naming
@@ -1362,7 +1518,8 @@ if __name__ == "__main__":
     # bg_genes = pd.DataFrame({'gene_id': counts_df.columns, 'gene_name': counts_df.columns.map(id_map)})
     # bg_genes.to_csv(f"./Private/Noise/Background_Genes.csv", index=False)
 
-    # run_analysis(counts_df, metadata_df, id_map, pairs)
+    run_analysis(counts_df, metadata_df, id_map, pairs)
+    exit()
     # plot_partial_results(counts_df, metadata_df, id_map, pairs)
     # plot_partial_neo_results(counts_df, metadata_df, id_map, pairs)
     # Generate Suppression Heatmaps
