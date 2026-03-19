@@ -543,7 +543,7 @@ def run_corrEnrich(data, metadata, run_type, antibiotics, treatments, id_to_name
 
 # --- 1. Data Loading (Your Function) ---
 def read_data_metadata(t=False, remove_mitochondrial=True, normalize=True):
-    base_path = '/Users/yonchlevin/Desktop/ErezLab/MouseAbxBel/Git/Data/Pairs/'
+    base_path = os.path.join(".", "Data", "Pairs") + os.sep
     metadata_path = base_path + 'metadata.tsv'
     metadata_df = pd.read_csv(metadata_path, sep='\t')
 

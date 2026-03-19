@@ -1,6 +1,6 @@
 library(ANCOMBC)
 library(phyloseq)
-path <- "C:/Users/Yehonatan/Desktop/Master/Git/DEP_Compare16s/Private/CompoResGenes/"
+path <- "./Private/CompoResGenes/"
 antibiotics_list <- c("Amp", "Van", "Neo", "Met", "Mix")
 treatments_list  <- c("IP", "IV", "PO")
 all_results_clean <- list()

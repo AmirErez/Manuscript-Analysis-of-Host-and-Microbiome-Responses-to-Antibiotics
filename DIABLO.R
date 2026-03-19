@@ -34,19 +34,20 @@ library(svglite)
 
 # --- CONFIGURATION ---
 # Define the paths to your files
-main_path <- "/Users/yonchlevin/Desktop/ErezLab/MouseAbxBel/Git/DEP_Compare16s/Private/"
-PATH_METADATA <- paste0(main_path, "metadata.csv")
-# PATH_TRANSCRIPTOME <- paste0(main_path, "transcriptome_transformed.csv") 
+PRIVATE_PATH <- "./Private/"
+DATA_PATH    <- "./Data/"
+
+PATH_METADATA     <- paste0(PRIVATE_PATH, "metadata.csv")
+# PATH_TRANSCRIPTOME <- paste0(PRIVATE_PATH, "transcriptome_transformed.csv")
 # TODO: note that this option (above) might have been used. In this case, replace the log2 section with the section above
-PATH_TRANSCRIPTOME <- paste0(main_path, "transcriptome.csv")
-PATH_MICROBIOME <- paste0(main_path, "otu_merged_feces_genus_qiime.tsv")
+PATH_TRANSCRIPTOME <- paste0(PRIVATE_PATH, "transcriptome.csv")
+PATH_MICROBIOME    <- paste0(DATA_PATH, "otu_merged_feces_genus_qiime.tsv")
 
-# *** NEW: Path to your gene mapping file ***
-PATH_GENE_MAP <- "/Users/yonchlevin/Desktop/ErezLab/MouseAbxBel/Git/Data/MultiAbx-16s/MultiAbx-RPKM-RNAseq-B6/new normalization/transcriptome_2023-09-17-genes_norm_named.tsv"
+# Path to your gene mapping file
+PATH_GENE_MAP <- paste0(DATA_PATH, "transcriptome_2023-09-17-genes_norm_named.tsv")
 
-# Define the output directory for plots and tables
-# PLEASE UPDATE THIS to your desired output folder
-OUTPUT_DIR <- "/Users/yonchlevin/Desktop/ErezLab/MouseAbxBel/DIABLO/DIABLO_Analysis_Outputs"
+# Output directory for plots and tables
+OUTPUT_DIR <- paste0(PRIVATE_PATH, "DIABLO_Analysis_Outputs")
 if (!dir.exists(OUTPUT_DIR)) {
   dir.create(OUTPUT_DIR)
 }

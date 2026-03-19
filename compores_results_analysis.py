@@ -1,5 +1,8 @@
 import os
 
+# SET THIS: path to your CompoRes output directory
+COMPORES_PATH = ""
+
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -140,7 +143,7 @@ def show_case_correlated_genes():
     the p-value of expression, p-value of compoRes, and the fold change in gene expression, and gene name.
     """
     ensmus_to_gene = get_ensmus_dict()
-    path = r"D:\Master heavy files\CompoResAllConditions"
+    path = COMPORES_PATH
     # path = r"C:\Users\Yehonatan\Desktop\Master\Git\DEP_Compare16s\Private\compores_response_ranking"
     multi_abx = calc_multi_abx_statistics()
     all_results = pd.DataFrame()
@@ -280,7 +283,7 @@ def compare_correlation_all():
     from clusters_plot import set_figure, get_to_axis
     axis = set_figure(treatments, antibiotics)
     uncorrelated = pd.DataFrame(columns=antibiotics, index=treatments)
-    path = r"D:\Master heavy files\CompoResAllConditions"
+    path = COMPORES_PATH
     # path = r"C:\Users\Yehonatan\Desktop\Master\Git\DEP_Compare16s\Private\compores_response_ranking"
 
     data_list = []
@@ -496,7 +499,7 @@ def compare_correlation_gf(abx, treat, threshold=0.05):
     ensmus_to_gene = temp.set_index('gene_id')['gene_name'].to_dict()
 
     column_names = ['gene', 'correlation', 'rmse']
-    path = fr"/Users/yonchlevin/Desktop/ErezLab/MouseAbxBel/CompoResults"
+    path = COMPORES_PATH
     # path = fr"D:\Master heavy files\CompoResAllConditions\119"
     # path = fr"D:\Master heavy files\CompoResAllConditions\bootstrap\50"
     # path = r"C:\Users\Yehonatan\Desktop\Master\Git\DEP_Compare16s\Private\compores_response_ranking"
@@ -927,7 +930,7 @@ def read_fmt(normalize=True):
 
 
 def compare_correlation_fmt(abx="Van", treat="PO", vs_all=True, threshold=0.05):
-    path = fr"/Users/yonchlevin/Desktop/ErezLab/MouseAbxBel/CompoResults"
+    path = COMPORES_PATH
     # path = fr"D:\Master heavy files\CompoResAllConditions\119"
     # path = fr"D:\Master heavy files\CompoResAllConditions\bootstrap\50"
     # path = fr"D:\Master heavy files\CompoResAllConditions{'\\0_05' if threshold == 0.05 else '\\0_01'}"
@@ -1347,7 +1350,7 @@ def neo_significance(threshold=0.05):
 
 def neo_compores(viral_genes):
     abx = "Neo"
-    path = r"D:\Master heavy files\CompoResAllConditions"
+    path = COMPORES_PATH
     plot_data = []
 
     for treat in treatments:
@@ -1460,8 +1463,8 @@ def neo_compores(viral_genes):
 
 
 def box_plot_compores_comparison_specific(genes, folder):
-    path = fr"D:\Master heavy files\CompoResAllConditions\{folder}"
-    significant_path = fr"D:\Master heavy files\CompoResAllConditions"
+    path = os.path.join(COMPORES_PATH, folder)
+    significant_path = COMPORES_PATH
     n_abx = len(antibiotics)
     fig, axes = plt.subplots(nrows=1, ncols=n_abx, figsize=(10 * n_abx, 5), sharey=True)
     for idx, abx in enumerate(antibiotics):
@@ -1554,7 +1557,7 @@ def compare_compores_all_antibiotics(genes, folder, threshold=False):
     color_map = {abx: unique_colors[i] for i, abx in enumerate(antibiotics)}
 
     adjust_font_sizes()
-    folder_path = fr"D:\Master heavy files\CompoResAllConditions{r'/0_05' if threshold else ''}"
+    folder_path = os.path.join(COMPORES_PATH, "0_05") if threshold else COMPORES_PATH
     # Create subplots
     n_treat = len(treatments)
     fig, axes = plt.subplots(nrows=1, ncols=n_treat, figsize=(10 * n_treat, 5), sharey=True)
@@ -1833,8 +1836,8 @@ def adjust_font_sizes():
 def box_plot_compores_comparison_clock(genes, folder, names, significance_dict, names_dictionary):
     from matplotlib.lines import Line2D
     adjust_font_sizes()
-    path = fr"D:\Master heavy files\CompoResAllConditions\{folder}"
-    significant_path = fr"D:\Master heavy files\CompoResAllConditions"
+    path = os.path.join(COMPORES_PATH, folder)
+    significant_path = COMPORES_PATH
     data_list = []
     # antibiotics = ["Neo", "Van"]
     for abx in antibiotics:

@@ -549,7 +549,7 @@ def run_referee_pcoa(metadata, run_treats):
     iterable = treatments if run_treats else [abx.lower() for abx in antibiotics]
     for treat in iterable:
         data = pd.read_csv(
-            f"/Users/yonchlevin/Desktop/ErezLab/MouseAbxBel/Git/DEP_Compare16s/Private/qiime/{treat}_qiime.tsv",
+            f"./Private/qiime/{treat}_qiime.tsv",
             sep="\t").set_index("#OTU ID").T
         d4_cols = [col for col in data.columns if
                    (metadata[metadata["#SampleID"] == col]["day"] == 4).values[0]]
@@ -646,10 +646,10 @@ if __name__ == "__main__":
     pca_fastspar_prepare(data, metadata, [abx.lower() for abx in antibiotics], "antibiotic")
 
     qiime_metadata_orig = pd.read_csv(
-        fr"D:\Master heavy files\16S BigAbX_\OneDrive_2024-03-27\מאמר לילך קבצי ריצה\orig\mf_ok122_2.tsv",
+        "./Data/mf_ok122_2.tsv",
         sep="\t")
     qiime_metadata_SB1 = pd.read_csv(
-        fr"D:\Master heavy files\16S BigAbX_\OneDrive_2024-03-27\מאמר לילך קבצי ריצה\SB1\metadata_SB1.tsv",
+        "./Data/metadata_SB1.tsv",
         sep="\t")
     qiime_metadata_SB1["day"] = [4] * qiime_metadata_SB1.shape[0]
     # rename "TREATMENT" to "antibiotic" and "INJECTION" to "treatment"
@@ -664,10 +664,10 @@ if __name__ == "__main__":
     qiime_metadata['antibiotic_treatment'] = qiime_metadata['antibiotic'] + "_" + qiime_metadata['treatment']
 
     qiime_data_orig = pd.read_csv(
-        fr"D:\Master heavy files\16S BigAbX_\OneDrive_2024-03-27\מאמר לילך קבצי ריצה\orig\species.tsv",
+        "./Data/orig_species.tsv",
         sep="\t", skiprows=[0]).set_index("#OTU ID")
     qiime_data_SB1 = pd.read_csv(
-        fr"D:\Master heavy files\16S BigAbX_\OneDrive_2024-03-27\מאמר לילך קבצי ריצה\SB1\species.tsv",
+        "./Data/SB1_species.tsv",
         sep="\t", skiprows=[0]).set_index("#OTU ID")
     qiime_data_SB1 = qiime_data_SB1[
         [col for col in qiime_data_SB1.columns if col in qiime_metadata_SB1["#SampleID"].values]]

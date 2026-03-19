@@ -34,26 +34,24 @@ library(matrixStats) # For rowVars
 library(svglite)
 
 # --- CONFIGURATION ---
-# Define the paths to your files
-main_path <- "/Users/yonchlevin/Desktop/ErezLab/MouseAbxBel/DIABLO/"
-PATH_METADATA <- paste0(main_path, "metadata.tsv")
-# PATH_TRANSCRIPTOME <- paste0(main_path, "transcriptome_transformed.csv") 
+# SET THIS: path to the directory containing the paired DIABLO input files
+# (metadata.tsv, genes.tsv, microbiome.tsv)
+DIABLO_INPUT_PATH <- ""
+
+PATH_METADATA      <- file.path(DIABLO_INPUT_PATH, "metadata.tsv")
+# PATH_TRANSCRIPTOME <- file.path(DIABLO_INPUT_PATH, "transcriptome_transformed.csv")
 # TODO: note that this option (above) might have been used. In this case, replace the log2 section with the section above
-PATH_TRANSCRIPTOME <- paste0(main_path, "genes.tsv")
-PATH_MICROBIOME <- paste0(main_path, "microbiome.tsv")
-# PATH_MICROBIOME <- paste0(main_path, "microbiome_metagenomics_genus.tsv")
-# PATH_MICROBIOME <- paste0(main_path, "microbiome_metagenomics_species.tsv")
-# PATH_MICROBIOME <- paste0(main_path, "microbiome_metagenomics_family.tsv")
+PATH_TRANSCRIPTOME <- file.path(DIABLO_INPUT_PATH, "genes.tsv")
+PATH_MICROBIOME    <- file.path(DIABLO_INPUT_PATH, "microbiome.tsv")
+# PATH_MICROBIOME  <- file.path(DIABLO_INPUT_PATH, "microbiome_metagenomics_genus.tsv")
+# PATH_MICROBIOME  <- file.path(DIABLO_INPUT_PATH, "microbiome_metagenomics_species.tsv")
+# PATH_MICROBIOME  <- file.path(DIABLO_INPUT_PATH, "microbiome_metagenomics_family.tsv")
 
-# *** Path to your gene mapping file ***
-PATH_GENE_MAP <- "/Users/yonchlevin/Desktop/ErezLab/MouseAbxBel/Git/Data/Pairs/genes_norm_named-newRNAseq.tsv"
+# Path to your gene mapping file (in repo)
+PATH_GENE_MAP <- file.path(".", "Data", "Pairs", "genes_norm_named-newRNAseq.tsv")
 
-# Define the output directory for plots and tables
-# PLEASE UPDATE THIS to your desired output folder
-# OUTPUT_DIR <- "/Users/yonchlevin/Desktop/ErezLab/MouseAbxBel/DIABLO/DIABLO_Analysis_Outputs_pairs_metagenomics_species"
-# OUTPUT_DIR <- "/Users/yonchlevin/Desktop/ErezLab/MouseAbxBel/DIABLO/DIABLO_Analysis_Outputs_pairs_metagenomics_family"
-# OUTPUT_DIR <- "/Users/yonchlevin/Desktop/ErezLab/MouseAbxBel/DIABLO/DIABLO_Analysis_Outputs_pairs_metagenomics"
-OUTPUT_DIR <- "/Users/yonchlevin/Desktop/ErezLab/MouseAbxBel/DIABLO/DIABLO_Analysis_Outputs_pairs"
+# Output directory for plots and tables
+OUTPUT_DIR <- file.path(".", "Private", "DIABLO_Analysis_Outputs_pairs")
 if (!dir.exists(OUTPUT_DIR)) {
   dir.create(OUTPUT_DIR)
 }

@@ -4,6 +4,12 @@ import ast
 import re
 import os
 
+# SET THIS: path to your CompoRes output directory (containing CompoRes_Clock results)
+COMPORES_PATH = "./Private"
+
+# SET THIS: path to the DIABLO analysis outputs directory
+DIABLO_OUTPUT_PATH = ""
+
 
 # --- 1. Helper Function to Clean Taxa Names ---
 def extract_core_genus(taxon_str):
@@ -34,9 +40,8 @@ summary_table = pd.DataFrame(columns=[
 for treatment in ["IP", "IV", "PO"]:
     # Build the path using os.path.join so that glob patterns work reliably
     path = os.path.join(
-        "/Users/yonchlevin/Desktop/ErezLab/MouseAbxBel/Git/DEP_Compare16s",
-        "Private",
-        f"CompoRes_Clock",
+        COMPORES_PATH,
+        "CompoRes_Clock",
         f"compores_all_Van{treatment}_clock_119",
         "balance_calculation_results",
         f"Van-{treatment}-feces",
@@ -94,7 +99,7 @@ for treatment in ["IP", "IV", "PO"]:
 
         # --- 3. Load DIABLO Edges ---
         # Replace with your actual DIABLO correlation network filename
-        base = f"/Users/yonchlevin/Desktop/ErezLab/MouseAbxBel/DIABLO/DIABLO_Analysis_Outputs/DIABLO_Compare_Van-{treatment}_vs_PBS-{treatment}1component"
+        base = os.path.join(DIABLO_OUTPUT_PATH, f"DIABLO_Compare_Van-{treatment}_vs_PBS-{treatment}1component")
         diablo_df = pd.read_csv(base+"_correlation_network.csv")
         diablo_edges = set()
 
@@ -168,9 +173,6 @@ for treatment in ["IP", "IV", "PO"]:
             print(f"  Gene: {edge[0]:<6} | Genus: {edge[1]}")
 
 # --- 7. Save Summary Table ---
-output_path = os.path.join(
-        "/Users/yonchlevin/Desktop/ErezLab/MouseAbxBel/Git/DEP_Compare16s",
-        "Private",
-        f"CompoRes_Clock")
+output_path = os.path.join(COMPORES_PATH, "CompoRes_Clock")
 summary_table.to_csv(output_path + "/DIABLO_vs_CompoRes_Summary.csv", index=False)
 print(f"\nSummary table saved as '{output_path}DIABLO_vs_CompoRes_Summary.csv'")

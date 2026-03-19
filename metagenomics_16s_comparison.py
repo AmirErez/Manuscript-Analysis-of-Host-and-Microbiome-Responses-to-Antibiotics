@@ -22,10 +22,13 @@ def get_compores_results(abx, path, treat, opt):
     return compores_results_spf
 
 
-significant_path = fr"/Users/yonchlevin/Desktop/ErezLab/MouseAbxBel/CompoResults/metagenomicsVS16s"
+# SET THIS: path to your CompoRes metagenomics vs 16S output directory
+COMPORES_PATH = ""
 
-path_meta = significant_path + fr"/metagenomics"
-path_16s = significant_path + fr"/16S"
+significant_path = os.path.join(COMPORES_PATH, "metagenomicsVS16s")
+
+path_meta = os.path.join(significant_path, "metagenomics")
+path_16s = os.path.join(significant_path, "16S")
 
 abx_dict = {
     "clock": "Van",

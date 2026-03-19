@@ -78,10 +78,10 @@ options_to_process <- c("amp", "van", "neo", "met", "mix", "IP", "IV", "PO")
 permutations_num = 1e+05
 
 # Set base file paths
-metadata_path <- "/Users/yonchlevin/Desktop/ErezLab/MouseAbxBel/Git/DEP_Compare16s/Private/"
-data_path <- "/Users/yonchlevin/Desktop/ErezLab/MouseAbxBel/Git/DEP_Compare16s/Private/qiime/"
+metadata_path <- "./Data/"
+data_path <- "./Private/qiime/"
 metadata_file <- paste0(metadata_path, "qiime_metadata.tsv")
-out_path <- "/Users/yonchlevin/Desktop/ErezLab/MouseAbxBel/Git/DEP_Compare16s/Private/adonis/"
+out_path <- "./Private/adonis/"
 
 # Check if metadata file exists
 if (!file.exists(metadata_file)) {

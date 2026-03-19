@@ -5,7 +5,7 @@ from groups_comparison import read_data_metadata
 
 import pandas as pd
 
-path = "/Users/yonchlevin/Desktop/ErezLab/MouseAbxBel/Git/Data/Pairs/"
+path = os.path.join(".", "Data", "Pairs")
 
 
 def transform_name(col):
