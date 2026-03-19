@@ -5,6 +5,8 @@ import re
 import os
 
 # SET THIS: path to your CompoRes output directory (containing CompoRes_Clock results)
+# CompoRes (Compositional microbiome Response) is available at:
+# https://github.com/AmirErez/CompoRes
 COMPORES_PATH = "./Private"
 
 # SET THIS: path to the DIABLO analysis outputs directory

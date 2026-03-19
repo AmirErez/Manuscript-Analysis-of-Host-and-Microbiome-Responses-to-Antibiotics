@@ -1,6 +1,8 @@
 import os
 
 # SET THIS: path to your CompoRes output directory
+# CompoRes (Compositional microbiome Response) is available at:
+# https://github.com/AmirErez/CompoRes
 COMPORES_PATH = ""
 
 import matplotlib.pyplot as plt

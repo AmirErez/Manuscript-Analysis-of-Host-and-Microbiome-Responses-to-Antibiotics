@@ -23,6 +23,8 @@ def get_compores_results(abx, path, treat, opt):
 
 
 # SET THIS: path to your CompoRes metagenomics vs 16S output directory
+# CompoRes (Compositional microbiome Response) is available at:
+# https://github.com/AmirErez/CompoRes
 COMPORES_PATH = ""
 
 significant_path = os.path.join(COMPORES_PATH, "metagenomicsVS16s")

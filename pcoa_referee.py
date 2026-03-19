@@ -116,8 +116,8 @@ if __name__ == '__main__':
     try:
         main_metadata = pd.read_csv('./Data/qiime_metadata.tsv', sep='\t')
     except FileNotFoundError:
-        print("ERROR: Could not find '../Data/QIIME/qiime_metadata.tsv'.")
-        print("Please ensure the metadata file is in the correct subfolder.")
+        print("ERROR: Could not find './Data/qiime_metadata.tsv'.")
+        print("Please ensure the metadata file is in the Data/ folder.")
         exit()
 
     # --- Loop through each group, load its data, and run all analyses ---

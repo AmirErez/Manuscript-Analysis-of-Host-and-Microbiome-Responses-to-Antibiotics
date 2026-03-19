@@ -96,6 +96,8 @@ You can run individual scripts based on your analysis needs:
 - `metagenomics_16s_comparison.py`: Compare metagenomics and 16S datasets.
 - `compores_results_analysis.py`: Perform statistical analysis of CompoRes output.
 - `pairs_compores.py`: CompoRes analysis for antibiotic/PBS paired samples.
+
+> **CompoRes** is a separate tool for compositional microbiome response analysis. Source and usage instructions are available at [github.com/AmirErez/CompoRes](https://github.com/AmirErez/CompoRes). Scripts that require CompoRes output have a `COMPORES_PATH` variable at the top that must be set to your local results directory.
 - `ANCOM_clean.R`: ANCOM-BC differential abundance testing.
 - `PERMANOVA_single_groups_transformations.R`: PCoA and PERMANOVA with multiple transformations.
 
@@ -142,6 +144,14 @@ compositions
 ANCOMBC
 phyloseq
 mixOmics
+```
+
+## Citation
+
+If you use this code, please cite:
+
+```
+<!-- TO BE UPDATED UPON PUBLICATION -->
 ```
 
 ## License
