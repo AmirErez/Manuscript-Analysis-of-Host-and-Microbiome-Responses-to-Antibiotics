@@ -61,7 +61,7 @@ mitochondrial_genes_translation = {
 mitochondrial_genes = list(mitochondrial_genes_translation.values())
 
 private = os.path.join("Private")
-path = os.path.join(private, "clusters_properties\\")
+path = os.path.join(private, "clusters_properties")
 
 
 # data_folder = os.path.join("..", "Data", "MultiAbx-16s", "MultiAbx-RPKM-RNAseq-B6", "new normalization")

@@ -114,7 +114,7 @@ if __name__ == '__main__':
 
     # --- Load the main metadata file once ---
     try:
-        main_metadata = pd.read_csv('../Data/QIIME/qiime_metadata.tsv', sep='\t')
+        main_metadata = pd.read_csv('./Data/qiime_metadata.tsv', sep='\t')
     except FileNotFoundError:
         print("ERROR: Could not find '../Data/QIIME/qiime_metadata.tsv'.")
         print("Please ensure the metadata file is in the correct subfolder.")

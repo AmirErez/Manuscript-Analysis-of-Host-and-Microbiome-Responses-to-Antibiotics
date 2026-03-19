@@ -267,7 +267,7 @@ def zscore_all_by_pbs(data, metadata):
 
 
 # --- Configuration ---
-BASE_PATH = os.path.join(".", "Data", "rat-neurons")
+BASE_PATH = os.path.join(".", "Data", "rat_nuerons")
 RAW_PATH = os.path.join(BASE_PATH, "genes_abundance_named.tsv")
 NORM_PATH = os.path.join(BASE_PATH, "genes_norm_named-20260211_NeuronInvitroRNAseq.tsv")
 OUTPUT_DIR = os.path.join(BASE_PATH, "Analysis_Results")

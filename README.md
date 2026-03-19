@@ -7,9 +7,25 @@ This repository provides complementary tools for analyzing microbiome data in co
 
 ```
 .
-├── Data/                                       # Folder containing datasets for all_figures_plot.py and clusters_plot.py
+├── Data/
+│   ├── GF time points/                         # GF condition gene expression and metadata
+│   ├── SPF time points/                        # SPF condition gene expression and metadata
+│   ├── GSEA/                                   # Pre-computed GSEA results per antibiotic/treatment
+│   ├── Pairs/                                  # Paired antibiotic vs. PBS transcriptome and metadata
+│   ├── rat_nuerons/                            # Rat neuron gene expression data
+│   ├── fastspar/                               # Per-treatment qiime OTU tables for PCoA
+│   ├── clusters_properties/                    # Pre-computed GO cluster properties (used by all_figures_plot.py)
+│   ├── auroc/                                  # AUROC scores per treatment
+│   ├── metadata.xlsx                           # Main experimental metadata
+│   ├── qiime_metadata.tsv                      # QIIME sample metadata
+│   ├── otu_merged_feces_*.tsv                  # Merged OTU tables at genus/family/species level
+│   ├── transcriptome_2023-09-17-genes_norm_named.tsv  # Normalized transcriptome (main cohort)
+│   ├── mRNA_NEBNext_20200908_genes_norm_named.tsv     # Normalized transcriptome (NEB cohort)
+│   ├── mf_ok122_2.tsv / orig_species.tsv / SB1_species.tsv / metadata_SB1.tsv  # SB1 cohort data
+│   └── big_abx_stats.csv / RASflow stats *.csv       # Summary statistics
+│
 ├── .gitignore                                  # Specifies intentionally untracked files to ignore
-├── init_project.py                             # Creates the required Private/ output directory
+├── init_project.py                             # Creates the required Private/ output directory structure
 │
 ├── -- Python Scripts --
 ├── ClusteringGO.py                             # Performs clustering of genes using GO annotations
@@ -51,7 +67,7 @@ Create a virtual environment and install dependencies (example using `venv` and 
 python -m venv env
 source env/bin/activate  # On Windows use `env\Scripts\activate`
 pip install -r requirements.txt
-python init_project.py
+python init_project.py  # creates the Private/ output directory and all required subdirectories
 ```
 
 For R scripts, install the required packages from CRAN/Bioconductor:
@@ -114,6 +130,7 @@ requests
 gseapy
 venn
 pydeseq2
+tqdm
 ```
 
 ### R

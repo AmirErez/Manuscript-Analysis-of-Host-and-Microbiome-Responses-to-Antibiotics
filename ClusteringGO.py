@@ -1430,7 +1430,7 @@ def get_go_to_ensmusg():
 def add_genes_ids(root: Any, go_to_ensmbl_dict: Dict[str, Set[str]],
                   progress_interval: int = 1000,
                   max_examples: int = 5,
-                  gene_name_file: str = "../Data/MultiAbx-16s/MultiAbx-RPKM-RNAseq-B6/new normalization/transcriptome_2023-09-17-genes_norm_named.tsv") -> Any:
+                  gene_name_file: str = "./Data/transcriptome_2023-09-17-genes_norm_named.tsv") -> Any:
     empty_nodes_counter = 0
     added: Set[str] = set()
 
