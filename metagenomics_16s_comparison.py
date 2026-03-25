@@ -21,17 +21,13 @@ def get_compores_results(abx, path, treat, opt):
     compores_results_spf["genes_name"] = compores_results_spf[column_names[0]].str.split('_').str[-1]
     return compores_results_spf
 
+revision = True
+significant_path = fr"/Users/yonchlevin/Desktop/ErezLab/MouseAbxBel/CompoResults/metagenomicsVS16s"
 
-# SET THIS: path to your CompoRes metagenomics vs 16S output directory
-# CompoRes (Compositional microbiome Response) is available at:
-# https://github.com/AmirErez/CompoRes
-COMPORES_PATH = ""
-
-significant_path = os.path.join(COMPORES_PATH, "metagenomicsVS16s")
-
-path_meta = os.path.join(significant_path, "metagenomics")
-path_16s = os.path.join(significant_path, "16S")
-
+path_meta = significant_path + fr"/metagenomics"
+path_16s = significant_path + fr"/16S"
+if revision:
+    path_16s += fr"-revision"
 abx_dict = {
     "clock": "Van",
     "viral": "Neo",
@@ -138,6 +134,10 @@ for log in [True, False]:
                     plt.xlabel('p-value [CompoRes on metagenomics]')
                     plt.ylabel('p-value [CompoRes on 16S]')
 
+                    # # set axes scale to log
+                    # plt.xscale('log')
+                    # plt.yscale('log')
+
                 plt.title(f'Metagenomics vs 16S ({comp}, {scale} density) — n={len(plot_df)}')
 
                 # Stats annotation
@@ -160,9 +160,11 @@ for log in [True, False]:
                 plt.tight_layout()
                 out_dir = './Private/seq_comp'
                 os.makedirs(out_dir, exist_ok=True)
-                out_path = f"{out_dir}/metagenomics_vs_16s_scatter_{comp}_{opt}_{scale}{'_pval' if not log else ''}.png"
+                out_path = f"{out_dir}/metagenomics_vs_16s_scatter_{comp}_{opt}_{scale}{'_pval' if not log else ''}{'-revision' if revision else ''}.png"
                 plt.savefig(out_path, dpi=300)
+                out_path_svg = f"{out_dir}/metagenomics_vs_16s_scatter_{comp}_{opt}_{scale}{'_pval' if not log else ''}{'-revision' if revision else ''}.svg"
+                plt.savefig(out_path_svg, dpi=300, bbox_inches="tight", format='svg')
                 # plt.show() # Optional: comment out if running in batch to avoid window popups
                 plt.close()
             # save the merged table
-            merged.to_csv(f"{out_dir}/metagenomics_vs_16s_scatter_{comp}_{opt}.csv")
+            merged.to_csv(f"{out_dir}/metagenomics_vs_16s_scatter_{comp}_{opt}{'-revision' if revision else ''}.csv")
